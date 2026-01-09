@@ -12,6 +12,13 @@ export enum TreeType {
   FOREST = 'Forestales / Ornamentales'
 }
 
+export enum SoilType {
+  SANDY = 'Arenoso',
+  SILTY = 'Limoso',
+  CLAYEY = 'Arcilloso',
+  LOAMY = 'Franco'
+}
+
 export enum OrganicProduct {
   // Líquidos
   POTASSIUM_SOAP = 'Jabón Potásico',
@@ -40,6 +47,7 @@ export type UnitType = 'g' | 'kg' | 'cc' | 'ml' | 'L';
 
 export interface CalculationInput {
   treeType: TreeType;
+  soilType: SoilType;
   treeAge: number;
   numTrees: number;
   selectedProducts: OrganicProduct[];

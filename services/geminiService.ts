@@ -10,13 +10,16 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     const prompt = `
       Actúa como un agrónomo experto en agricultura orgánica regenerativa. 
       Analiza una mezcla de los siguientes productos: [${productList}] para ser aplicados en un cultivo de ${input.treeType}.
-      Datos del cultivo:
-      - Edad: ${input.treeAge} años.
+      Datos del cultivo y terreno:
+      - Tipo de Suelo: ${input.soilType}.
+      - Edad del Cultivo: ${input.treeAge} años.
       - Estado actual de salud: ${input.healthStatus}.
       - Objetivo: Nutrición balanceada y recuperación del suelo.
       
+      IMPORTANTE: Considera cómo la textura del suelo (${input.soilType}) afecta la retención de estos insumos orgánicos.
+      
       Proporciona:
-      1. 3 consejos de aplicación técnica específicos para esta combinación de productos.
+      1. 3 consejos de aplicación técnica específicos para esta combinación de productos y este tipo de suelo.
       2. Una recomendación sobre el momento ideal de aplicación (fenología).
       3. Una puntuación de sostenibilidad del 1 al 10.
     `;
