@@ -1,0 +1,7 @@
+{
+  "name": "Copy of AgroCalculadora Orgánica",
+  "description": "Una herramienta profesional para agricultores que calcula dosis precisas de fertilizantes orgánicos por árbol, optimizada con IA para recomendaciones sostenibles.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
