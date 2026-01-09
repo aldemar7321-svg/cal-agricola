@@ -78,3 +78,16 @@ export interface AIAdvice {
   seasonalAdvice: string;
   sustainabilityScore: number;
 }
+
+export interface PlantingFormulaItem {
+  product: OrganicProduct;
+  suggestedAmount: number;
+  totalAmount: number;
+  unit: UnitType;
+  reason: string;
+}
+
+export interface PlantingFormulaRecommendation {
+  explanation: string;
+  items: PlantingFormulaItem[];
+}

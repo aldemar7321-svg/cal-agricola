@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { TreeType, SoilType, OrganicProduct, CalculationInput, CalculationResult, AIAdvice, ProductResult, UnitType } from './types';
+import { TreeType, SoilType, OrganicProduct, CalculationInput, CalculationResult, AIAdvice, ProductResult, UnitType, PlantingFormulaRecommendation } from './types';
 import { BASE_RATES, PRODUCT_UNITS, TREE_TYPE_ICONS, PRODUCT_CATEGORIES } from './constants';
-import { getAgriculturalAdvice } from './services/geminiService';
+import { getAgriculturalAdvice, getPlantingFormula } from './services/geminiService';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const App: React.FC = () => {
   const [input, setInput] = useState<CalculationInput>({
@@ -22,6 +22,8 @@ const App: React.FC = () => {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [aiAdvice, setAiAdvice] = useState<AIAdvice | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingFormula, setLoadingFormula] = useState(false);
+  const [formulaRec, setFormulaRec] = useState<PlantingFormulaRecommendation | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const copyToClipboard = async (text: string, key: string) => {
@@ -115,11 +117,44 @@ const App: React.FC = () => {
     setLoading(false);
   };
 
+  const handleGetFormula = async () => {
+    setLoadingFormula(true);
+    const rec = await getPlantingFormula(input.treeType, input.soilType, input.numTrees);
+    setFormulaRec(rec);
+    setLoadingFormula(false);
+  };
+
+  const applyFormula = () => {
+    if (!formulaRec) return;
+    
+    const selectedProducts: OrganicProduct[] = [];
+    const manualAmounts: Record<string, number> = {};
+    const selectedUnits: Record<string, UnitType> = { ...input.selectedUnits };
+
+    formulaRec.items.forEach(item => {
+      selectedProducts.push(item.product);
+      manualAmounts[item.product] = item.suggestedAmount;
+      selectedUnits[item.product] = item.unit;
+    });
+
+    setInput(prev => ({
+      ...prev,
+      selectedProducts,
+      manualAmounts,
+      selectedUnits,
+      treeAge: 1, // Reset to planting age
+      healthStatus: 'bueno'
+    }));
+    
+    setFormulaRec(null); // Clear recommendation panel after applying
+  };
+
   const generatePDF = () => {
     if (!result) return;
     const doc = new jsPDF();
 
-    doc.setFillColor(6, 78, 59);
+    // Estilo de Cabecera
+    doc.setFillColor(6, 78, 59); // Emerald 900
     doc.rect(0, 0, 210, 40, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
@@ -127,6 +162,7 @@ const App: React.FC = () => {
     doc.setFontSize(10);
     doc.text('REPORTE TÉCNICO DE NUTRICIÓN REGENERATIVA', 15, 33);
 
+    // Info del Lote
     doc.setTextColor(50, 50, 50);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -144,8 +180,8 @@ const App: React.FC = () => {
     doc.text(`Nº de Plantas: ${input.numTrees}`, 105, 72);
     doc.setFont("helvetica", "bold");
     doc.text(`Frecuencia: ${result.frequency}`, 105, 79);
-    doc.setFont("helvetica", "normal");
 
+    // Tabla de Productos
     const tableData = result.products.map(p => [
       p.product,
       `${p.amount} ${p.unit}`,
@@ -153,7 +189,7 @@ const App: React.FC = () => {
       `$ ${p.totalCost.toLocaleString('es-CO')}`
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 90,
       head: [['Producto', 'Dosis / Planta', 'Costo / Planta', 'Subtotal Lote']],
       body: tableData,
@@ -163,9 +199,11 @@ const App: React.FC = () => {
       theme: 'striped'
     });
 
+    // Consejos de IA
     if (aiAdvice) {
       const finalY = (doc as any).lastAutoTable.finalY + 15;
       doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
       doc.text('Recomendación de Inteligencia Agrícola', 15, finalY);
       doc.line(15, finalY + 2, 195, finalY + 2);
       
@@ -363,6 +401,47 @@ const App: React.FC = () => {
                   <input type="number" min="1" value={input.numTrees} onChange={e => setInput({...input, numTrees: parseInt(e.target.value) || 1})} className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none font-black text-lg" />
                 </div>
               </div>
+
+              <button 
+                onClick={handleGetFormula}
+                disabled={loadingFormula}
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black py-4 rounded-2xl shadow-lg flex items-center justify-center gap-3 hover:scale-[1.02] transition-all uppercase tracking-widest text-[10px]"
+              >
+                {loadingFormula ? <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div> : <i className="fas fa-wand-magic-sparkles"></i>}
+                {loadingFormula ? 'Calculando Insumos...' : `Obtener Fórmula para ${input.numTrees} Plantas`}
+              </button>
+
+              {formulaRec && (
+                <div className="bg-slate-900 text-white p-6 rounded-[1.5rem] border border-emerald-500/30 animate-in slide-in-from-top duration-500">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-black text-emerald-400 uppercase tracking-widest">
+                      Fórmula para {input.numTrees} {input.numTrees === 1 ? 'Planta' : 'Plantas'}
+                    </h3>
+                    <button onClick={() => setFormulaRec(null)} className="text-slate-500 hover:text-white transition-colors"><i className="fas fa-times"></i></button>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mb-4 italic leading-relaxed">"{formulaRec.explanation}"</p>
+                  <div className="space-y-4 mb-6">
+                    {formulaRec.items.map((item, idx) => (
+                      <div key={idx} className="bg-white/5 p-3 rounded-xl border border-white/5">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-[11px] font-bold text-emerald-100">{item.product}</span>
+                          <div className="text-right">
+                            <span className="text-[11px] font-black text-emerald-400 block">{item.totalAmount}{item.unit} (Total Lote)</span>
+                            <span className="text-[9px] text-emerald-400/40 block">{item.suggestedAmount}{item.unit} / planta</span>
+                          </div>
+                        </div>
+                        <span className="text-[9px] text-slate-500 leading-tight block mt-1">{item.reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={applyFormula}
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-colors shadow-lg"
+                  >
+                    Cargar esta mezcla al presupuesto
+                  </button>
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Vigor General</label>
