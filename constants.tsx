@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TreeType, OrganicProduct, UnitType } from './types';
+import { TreeType, OrganicProduct, UnitType } from './types.ts';
 
 export const TREE_TYPE_ICONS: Record<TreeType, React.ReactNode> = {
   [TreeType.CITRUS]: <i className="fas fa-lemon text-yellow-500"></i>,
@@ -10,6 +10,7 @@ export const TREE_TYPE_ICONS: Record<TreeType, React.ReactNode> = {
   [TreeType.AVOCADO]: <i className="fas fa-seedling text-green-700"></i>,
   [TreeType.COFFEE]: <i className="fas fa-mug-hot text-amber-900"></i>,
   [TreeType.CACAO]: <i className="fas fa-cookie text-amber-800"></i>,
+  [TreeType.COCONUT]: <i className="fas fa-tree text-amber-600"></i>,
   [TreeType.GARDEN]: <i className="fas fa-spa text-pink-400"></i>,
   [TreeType.GRASS]: <i className="fas fa-align-justify text-emerald-500"></i>,
   [TreeType.FOREST]: <i className="fas fa-tree text-emerald-800"></i>,
@@ -38,6 +39,27 @@ export const PRODUCT_CATEGORIES = {
     OrganicProduct.DIATOMACEOUS_EARTH,
     OrganicProduct.MAGNESITE,
   ]
+};
+
+export const PRODUCT_NUTRIENTS: Record<OrganicProduct, { N: number, P: number, K: number, OM: number }> = {
+  [OrganicProduct.POTASSIUM_SOAP]: { N: 0, P: 0, K: 40, OM: 5 },
+  [OrganicProduct.LIQUID_HUMUS]: { N: 20, P: 15, K: 20, OM: 80 },
+  [OrganicProduct.LIQUID_IRON_OXIDE]: { N: 0, P: 0, K: 0, OM: 2 },
+  [OrganicProduct.EM]: { N: 10, P: 10, K: 10, OM: 90 },
+  [OrganicProduct.MOLASSES]: { N: 5, P: 2, K: 15, OM: 60 },
+  [OrganicProduct.SULFUR_FUNGICIDE]: { N: 0, P: 0, K: 0, OM: 0 },
+  [OrganicProduct.NEEM_EXTRACT]: { N: 10, P: 0, K: 0, OM: 10 },
+  [OrganicProduct.BORON]: { N: 0, P: 0, K: 0, OM: 0 },
+  [OrganicProduct.ZINC]: { N: 0, P: 0, K: 0, OM: 0 },
+  [OrganicProduct.COPPER]: { N: 0, P: 0, K: 0, OM: 0 },
+  [OrganicProduct.COMPOST_TERRABONO]: { N: 15, P: 15, K: 15, OM: 100 },
+  [OrganicProduct.SEA_SALT]: { N: 0, P: 0, K: 5, OM: 0 },
+  [OrganicProduct.ROCK_DUST]: { N: 0, P: 10, K: 10, OM: 0 },
+  [OrganicProduct.PHOSPHATE_ROCK]: { N: 0, P: 80, K: 0, OM: 0 },
+  [OrganicProduct.CALCIUM_CARBONATE]: { N: 0, P: 0, K: 0, OM: 0 },
+  [OrganicProduct.LEONARDITE]: { N: 5, P: 2, K: 2, OM: 95 },
+  [OrganicProduct.DIATOMACEOUS_EARTH]: { N: 0, P: 5, K: 5, OM: 0 },
+  [OrganicProduct.MAGNESITE]: { N: 0, P: 0, K: 0, OM: 0 },
 };
 
 export const BASE_RATES: Record<OrganicProduct, number> = {

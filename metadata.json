@@ -1,7 +1,8 @@
 {
-  "name": "Copy of AgroCalculadora Orgánica",
-  "description": "Una herramienta profesional para agricultores que calcula dosis precisas de fertilizantes orgánicos por árbol, optimizada con IA para recomendaciones sostenibles.",
+  "name": "AgroCalculadora PRO CO",
+  "description": "Herramienta avanzada de precisión agrícola para cálculo de enmiendas orgánicas con analítica NPK y asistente IA Vision.",
   "requestFramePermissions": [
-    "geolocation"
+    "geolocation",
+    "camera"
   ]
 }
