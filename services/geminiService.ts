@@ -24,18 +24,14 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     - Cantidad: ${input.numTrees} ${unitMeasure}
     - Suelo: ${input.soilType}
     - Clima: ${input.climate}
-    - Insumos: ${productList}
+    - Estado de salud: ${input.healthStatus}
+    - Insumos disponibles: ${productList}
     
     TAREA:
-    Genera un protocolo de dosificación EXACTO. Debes indicar cuántos gramos/cc de cada producto usar por cada ${isGrass ? 'metro' : 'árbol'} y en total para el lote.
+    Genera un protocolo de dosificación EXACTO y profesional. 
+    Debes indicar cuántos gramos/cc de cada producto usar por cada unidad (${isGrass ? 'metro' : 'árbol'}) y en total para el lote.
     
-    INSTRUCCIONES JSON:
-    1. radicularPlan: Dosis recomendadas por insumo sólido.
-    2. foliarPlan: Dosis recomendadas por insumo líquido.
-    3. waterRequirement: Plan de riego.
-    4. tips: Recomendaciones prácticas.
-    
-    Responde solo en JSON.`;
+    Responde estrictamente en formato JSON siguiendo el esquema proporcionado.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
@@ -98,8 +94,14 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
       },
     });
 
-    return JSON.parse(response.text.trim());
+    const text = response.text;
+    if (!text) throw new Error("Respuesta vacía de la IA");
+    
+    // Limpieza de posibles bloques de código markdown si la IA ignora el mimeType
+    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanJson);
   } catch (error) {
+    console.error("Error en getAgriculturalAdvice:", error);
     return null;
   }
 };
@@ -107,7 +109,7 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
 export const getIndependentVisionDiagnosis = async (imageBase64: string, targetType: string): Promise<VisionReport | null> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const prompt = `Analiza esta imagen de ${targetType}. Identifica plagas o deficiencias. Responde en JSON.`;
+    const prompt = `Analiza esta imagen de ${targetType}. Identifica plagas o deficiencias. Responde estrictamente en JSON.`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
@@ -146,8 +148,12 @@ export const getIndependentVisionDiagnosis = async (imageBase64: string, targetT
       }
     });
 
-    return JSON.parse(response.text.trim());
+    const text = response.text;
+    if (!text) throw new Error("Respuesta vacía de IA Vision");
+    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanJson);
   } catch (error) {
+    console.error("Error en IA Vision:", error);
     return null;
   }
 };
