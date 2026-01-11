@@ -87,6 +87,10 @@ export interface CalculationInput {
   selectedUnits: Record<string, UnitType>;
   healthStatus: 'bueno' | 'regular' | 'deficiente';
   healthPhoto?: string; // base64
+  location?: {
+    lat: number;
+    lng: number;
+  };
 }
 
 export interface ProductResult {

@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [visionReport, setVisionReport] = useState<VisionReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fetchingLocation, setFetchingLocation] = useState(false);
   
   const aiSectionRef = useRef<HTMLDivElement>(null);
   const visionFileInputRef = useRef<HTMLInputElement>(null);
@@ -38,6 +39,36 @@ const App: React.FC = () => {
   const currentType = isGrassTab ? TreeType.GRASS : input.treeType;
   const currentUnitLabel = isGrassTab ? input.grassMode : 'plantas';
   const speciesName = isGrassTab ? `Grama ${input.grassVariety}` : input.treeType;
+
+  const captureLocation = () => {
+    if (!navigator.geolocation) {
+      setError("Tu navegador no soporta geolocalización.");
+      return;
+    }
+
+    setFetchingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setInput(prev => ({
+          ...prev,
+          location: {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          }
+        }));
+        setFetchingLocation(false);
+      },
+      (err) => {
+        setError("No se pudo obtener la ubicación. Verifica los permisos.");
+        setFetchingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  useEffect(() => {
+    captureLocation();
+  }, []);
 
   const calculateLocalData = useCallback(() => {
     let modifier = 1.0;
@@ -77,6 +108,7 @@ const App: React.FC = () => {
     
     result.products.forEach(p => {
       const profile = PRODUCT_NUTRIENTS[p.product];
+      // Calculamos la carga real basada en la dosis
       totals.N += (p.amount * profile.N) / 100;
       totals.P += (p.amount * profile.P) / 100;
       totals.K += (p.amount * profile.K) / 100;
@@ -92,11 +124,9 @@ const App: React.FC = () => {
   }, [result]);
 
   const handleFetchProfessionalAdvice = async () => {
-    // Verificar si se requiere selección de llave para modelos Pro en este entorno
     const hasKey = typeof window !== 'undefined' && (window as any).aistudio?.hasSelectedApiKey;
     if (hasKey && !(await (window as any).aistudio.hasSelectedApiKey())) {
       await (window as any).aistudio.openSelectKey();
-      // No retornamos, asumimos que después de abrir el diálogo puede continuar si se inyecta la llave
     }
 
     setLoading(true);
@@ -112,12 +142,11 @@ const App: React.FC = () => {
       
       if (advice) {
         setAiAdvice(advice);
-        // Pequeño retardo para asegurar que el DOM se renderizó antes del scroll
         setTimeout(() => {
           aiSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 300);
       } else {
-        setError("La IA no pudo procesar los datos. Verifique su conexión o intente con menos insumos.");
+        setError("La IA no pudo procesar los datos. Verifique su conexión.");
       }
     } catch (err) {
       setError("Error crítico en el servicio de Inteligencia Artificial.");
@@ -140,7 +169,7 @@ const App: React.FC = () => {
       if (report) {
         setVisionReport(report);
       } else {
-        setError("No se pudo realizar el diagnóstico visual. Intente con una foto más clara.");
+        setError("No se pudo realizar el diagnóstico visual.");
       }
       setLoading(false);
     };
@@ -173,6 +202,7 @@ const App: React.FC = () => {
       [`Cantidad:`, `${input.numTrees} ${currentUnitLabel}`],
       [`Suelo:`, input.soilType],
       [`Clima:`, input.climate],
+      [`Ubicación:`, input.location ? `${input.location.lat.toFixed(5)}, ${input.location.lng.toFixed(5)}` : 'No registrada'],
       [`Total Inversión:`, `$${result.totalProjectCost.toLocaleString()} COP`]
     ];
 
@@ -226,8 +256,10 @@ const App: React.FC = () => {
 
   const shareWhatsApp = () => {
     if (!result) return;
+    const locationStr = input.location ? `📍 *Ubicación:* https://www.google.com/maps?q=${input.location.lat},${input.location.lng}\n` : '';
     let msg = `🚜 *AGROVISION CO - REPORTE FINAL*\n\n` +
       `📍 *Cultivo:* ${speciesName}\n` +
+      locationStr +
       `📦 *Lote:* ${input.numTrees} ${currentUnitLabel}\n` +
       `💰 *Presupuesto:* $${result.totalProjectCost.toLocaleString()} COP\n\n` +
       `*BALANCE NPK+MO:*\n` +
@@ -241,8 +273,10 @@ const App: React.FC = () => {
 
   const sendEmail = () => {
     if (!result) return;
+    const locationStr = input.location ? `UBICACIÓN: https://www.google.com/maps?q=${input.location.lat},${input.location.lng}\n` : '';
     const subject = `Reporte Técnico - ${speciesName}`;
     const body = `Hola,\n\nSe adjunta el reporte de dosificación para ${speciesName}.\n\n` +
+      locationStr +
       `BALANCE NPK+MO:\n` +
       nutrientBalance.map(n => `- ${n.name}: ${n.value}`).join('\n') +
       `\n\nCANTIDAD: ${input.numTrees} ${currentUnitLabel}\n\n` +
@@ -253,6 +287,8 @@ const App: React.FC = () => {
 
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
+
+  const hasNutrientData = useMemo(() => nutrientBalance.some(n => n.value > 0), [nutrientBalance]);
 
   return (
     <div className="min-h-screen bg-[#f1f5f9] pb-24 text-[#111827]">
@@ -292,6 +328,45 @@ const App: React.FC = () => {
         {activeTab !== 'vision' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <aside className="lg:col-span-4 space-y-6">
+              <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-slate-200">
+                <h2 className="text-xl font-black mb-6 text-[#064e3b] flex items-center gap-3">
+                  <i className="fas fa-map-marker-alt"></i> Ubicación del Predio
+                </h2>
+                <div className="space-y-4">
+                  {input.location ? (
+                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">Coordenadas</span>
+                        <button onClick={captureLocation} className="text-emerald-700 hover:text-emerald-900 transition-colors">
+                          <i className={`fas fa-sync-alt ${fetchingLocation ? 'animate-spin' : ''}`}></i>
+                        </button>
+                      </div>
+                      <p className="text-sm font-black text-[#111827]">{input.location.lat.toFixed(6)}, {input.location.lng.toFixed(6)}</p>
+                      <a 
+                        href={`https://www.google.com/maps?q=${input.location.lat},${input.location.lng}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="mt-4 inline-flex items-center gap-2 text-xs font-black text-emerald-700 hover:underline"
+                      >
+                        <i className="fas fa-external-link-alt"></i> Ver en Google Maps
+                      </a>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={captureLocation} 
+                      disabled={fetchingLocation}
+                      className="w-full p-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-black text-xs hover:bg-slate-100 transition-all flex flex-col items-center gap-2"
+                    >
+                      {fetchingLocation ? (
+                        <><i className="fas fa-circle-notch animate-spin text-xl"></i> Obteniendo ubicación...</>
+                      ) : (
+                        <><i className="fas fa-crosshairs text-xl"></i> Capturar ubicación actual</>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-slate-200">
                 <h2 className="text-xl font-black mb-8 text-[#064e3b] border-b pb-4 flex items-center gap-3">
                   <i className="fas fa-sliders-h"></i> {isGrassTab ? 'Ajustes Grama' : 'Ajustes Cultivo'}
@@ -409,26 +484,40 @@ const App: React.FC = () => {
                         <h4 className="text-sm font-black uppercase text-[#111827] mb-6 tracking-widest flex items-center gap-2">
                           <i className="fas fa-chart-bar text-blue-500"></i> Balance Nutricional (Carga Estimada)
                         </h4>
-                        <div className="h-64 w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={nutrientBalance} layout="vertical" margin={{ left: 20, right: 30 }}>
-                              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                              <XAxis type="number" hide />
-                              <YAxis dataKey="name" type="category" width={120} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#000000' }} />
-                              <Tooltip 
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }} 
-                                cursor={{ fill: 'transparent' }}
-                              />
-                              <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={25}>
-                                {nutrientBalance.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
+                        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-inner" style={{ height: '300px' }}>
+                          {hasNutrientData ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={nutrientBalance} layout="vertical" margin={{ left: 10, right: 30, top: 10, bottom: 10 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                                <XAxis type="number" hide />
+                                <YAxis 
+                                  dataKey="name" 
+                                  type="category" 
+                                  width={130} 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  tick={{ fontSize: 10, fontWeight: 800, fill: '#000000' }} 
+                                />
+                                <Tooltip 
+                                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }} 
+                                  cursor={{ fill: '#f8fafc' }}
+                                />
+                                <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={30}>
+                                  {nutrientBalance.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2">
+                               <i className="fas fa-chart-area text-4xl"></i>
+                               <p className="font-bold italic text-sm">Aún no hay carga nutricional detectada</p>
+                            </div>
+                          )}
                         </div>
                         <p className="text-[9px] text-[#111827] mt-4 text-center font-bold italic">
-                          * Los valores representan la carga total calculada basada en la composición porcentual de los insumos seleccionados.
+                          * Los valores representan la carga total calculada (g o ml equivalentes) basada en la composición porcentual de los insumos seleccionados.
                         </p>
                       </div>
 
