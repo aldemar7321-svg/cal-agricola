@@ -108,7 +108,6 @@ const App: React.FC = () => {
     
     result.products.forEach(p => {
       const profile = PRODUCT_NUTRIENTS[p.product];
-      // Calculamos la carga real basada en la dosis
       totals.N += (p.amount * profile.N) / 100;
       totals.P += (p.amount * profile.P) / 100;
       totals.K += (p.amount * profile.K) / 100;
@@ -160,18 +159,31 @@ const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Verificar API Key para Vision
+    const hasKey = typeof window !== 'undefined' && (window as any).aistudio?.hasSelectedApiKey;
+    if (hasKey && !(await (window as any).aistudio.hasSelectedApiKey())) {
+      await (window as any).aistudio.openSelectKey();
+    }
+
     setLoading(true);
     setError(null);
+    setVisionReport(null);
+    
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64 = reader.result as string;
-      const report = await getIndependentVisionDiagnosis(base64, isGrassTab ? "Grama/Césped" : input.treeType);
-      if (report) {
-        setVisionReport(report);
-      } else {
-        setError("No se pudo realizar el diagnóstico visual.");
+      try {
+        const report = await getIndependentVisionDiagnosis(base64, isGrassTab ? "Grama/Césped" : input.treeType);
+        if (report) {
+          setVisionReport(report);
+        } else {
+          setError("IA Vision no pudo diagnosticar la imagen. Intente con una foto más clara y con buena luz.");
+        }
+      } catch (err) {
+        setError("Fallo en el servidor de IA Vision.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     reader.readAsDataURL(file);
   }, [input.treeType, isGrassTab]);
@@ -607,27 +619,47 @@ const App: React.FC = () => {
           <div className="max-w-4xl mx-auto py-10 space-y-8 animate-in fade-in duration-700">
              <div className="bg-white p-16 rounded-[2.5rem] shadow-2xl text-center border border-slate-200">
                 <h2 className="text-5xl font-black text-[#111827] mb-6 uppercase tracking-tighter">IA Vision CO</h2>
-                <p className="text-slate-600 mb-10 font-bold max-w-lg mx-auto">Tome una fotografía de la muestra afectada para diagnóstico en tiempo real.</p>
-                <button onClick={() => visionFileInputRef.current?.click()} className="bg-[#064e3b] text-white px-16 py-6 rounded-2xl text-xl font-black shadow-2xl flex items-center gap-4 border-8 border-emerald-100 mx-auto hover:scale-105 active:scale-95 transition-all">
-                    <i className="fas fa-camera"></i> Escanear Hoja
+                <p className="text-slate-600 mb-10 font-bold max-w-lg mx-auto">Tome una fotografía de la muestra afectada para diagnóstico fitosanitario en tiempo real.</p>
+                <button 
+                  onClick={() => visionFileInputRef.current?.click()} 
+                  disabled={loading}
+                  className="bg-[#064e3b] text-white px-16 py-6 rounded-2xl text-xl font-black shadow-2xl flex items-center gap-4 border-8 border-emerald-100 mx-auto hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                >
+                    {loading ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-camera"></i>} 
+                    {loading ? "Analizando muestra..." : "Escanear Hoja"}
                 </button>
                 <input type="file" accept="image/*" ref={visionFileInputRef} onChange={handlePhotoUpload} className="hidden" />
              </div>
              {visionReport && (
                 <div className="bg-[#111827] p-10 rounded-[2.5rem] text-white shadow-2xl space-y-8 border-8 border-white/5 animate-in slide-in-from-bottom duration-500">
                    <div className="border-b border-white/10 pb-8">
-                      <h3 className="text-emerald-400 text-xs font-black uppercase tracking-widest mb-4">Análisis de Muestra</h3>
+                      <h3 className="text-emerald-400 text-xs font-black uppercase tracking-widest mb-4">Análisis de Muestra por IA</h3>
                       <p className="text-3xl font-black italic tracking-tight opacity-95">"{visionReport.plantReading}"</p>
                    </div>
                    <div className="grid md:grid-cols-2 gap-6">
                       <div className="bg-white/5 p-8 rounded-3xl border border-white/10">
-                        <h4 className="text-lg font-black mb-4 text-emerald-400 flex items-center gap-2"><i className="fas fa-bug"></i> Hallazgo</h4>
-                        <p className="text-base font-bold mb-2">{visionReport.pestAnalysis.identifiedPest}</p>
-                        <p className="text-xs opacity-70 leading-relaxed italic">{visionReport.pestAnalysis.symptoms}</p>
+                        <div className="flex justify-between items-start mb-4">
+                          <h4 className="text-lg font-black text-emerald-400 flex items-center gap-2"><i className="fas fa-bug"></i> Hallazgo</h4>
+                          <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${visionReport.pestAnalysis.severity === 'Crítica' ? 'bg-red-500' : 'bg-emerald-500'}`}>
+                            {visionReport.pestAnalysis.severity}
+                          </span>
+                        </div>
+                        <p className="text-base font-bold mb-1">{visionReport.pestAnalysis.identifiedPest}</p>
+                        <p className="text-[10px] text-emerald-200 mb-3 italic">{visionReport.pestAnalysis.scientificName}</p>
+                        <p className="text-xs opacity-70 leading-relaxed">{visionReport.pestAnalysis.symptoms}</p>
                       </div>
                       <div className="bg-white/5 p-8 rounded-3xl border border-white/10">
-                        <h4 className="text-lg font-black mb-4 text-emerald-400 flex items-center gap-2"><i className="fas fa-flask"></i> Solución</h4>
+                        <h4 className="text-lg font-black mb-4 text-emerald-400 flex items-center gap-2"><i className="fas fa-flask"></i> Solución Orgánica</h4>
+                        <div className="mb-4">
+                          <span className="text-[10px] font-black uppercase opacity-50 block mb-2">Ingredientes</span>
+                          <div className="flex flex-wrap gap-2">
+                            {visionReport.biologicalRemedy.ingredients.map((ing, i) => (
+                              <span key={i} className="text-[10px] bg-white/10 px-2 py-1 rounded">{ing}</span>
+                            ))}
+                          </div>
+                        </div>
                         <p className="text-xs leading-relaxed opacity-90 italic">"{visionReport.biologicalRemedy.preparation}"</p>
+                        <p className="mt-3 text-[10px] font-bold text-emerald-300">Aplicación: {visionReport.biologicalRemedy.application}</p>
                       </div>
                    </div>
                 </div>
