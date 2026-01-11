@@ -6,7 +6,6 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // Construcción de la lista de insumos con sus precios y unidades para que la IA los analice
     const productList = input.selectedProducts.map(p => {
       const unit = input.selectedUnits[p] || 'unidad';
       const price = input.productPrices[p] || 0;
@@ -17,36 +16,30 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     const speciesName = isGrass ? `Grama ${input.grassVariety}` : input.treeType;
     const unitMeasure = isGrass ? input.grassMode : 'plantas';
     
-    const textPrompt = `Actúa como un Ph.D. en Agronomía Tropical especializado en suelos de Colombia.
+    const textPrompt = `Actúa como un experto en agronomía orgánica de precisión en Colombia.
     
-    SOLICITUD: Generar un PROTOCOLO TÉCNICO DE FERTILIZACIÓN Y RIEGO.
-    
-    DETALLES TÉCNICOS DEL LOTE:
-    - Objetivo: ${input.applicationMode}
+    DATOS DEL CULTIVO:
     - Especie: ${speciesName}
-    - Magnitud: ${input.numTrees} ${unitMeasure}
-    - Tipo de Suelo: ${input.soilType}
-    - Clima Actual: ${input.climate}
-    - Insumos Seleccionados por el Usuario (Analizar costo/beneficio):
-    ${productList}
+    - Objetivo: ${input.applicationMode}
+    - Cantidad: ${input.numTrees} ${unitMeasure}
+    - Suelo: ${input.soilType}
+    - Clima: ${input.climate}
+    - Insumos: ${productList}
     
-    INSTRUCCIONES PARA EL JSON:
-    1. radicularPlan: Pasos de aplicación al suelo usando los insumos sólidos seleccionados.
-    2. foliarPlan: Pasos de aplicación foliar usando los insumos líquidos seleccionados.
-    3. waterRequirement: Volumen exacto de agua, frecuencia (ej: cada 2 días) y técnica (ej: aspersión manual).
-    4. seasonalAdvice: Advertencia climática para la región.
-    5. tips: Consejos para la comunidad agrícola.
+    TAREA:
+    Genera un protocolo de dosificación EXACTO. Debes indicar cuántos gramos/cc de cada producto usar por cada ${isGrass ? 'metro' : 'árbol'} y en total para el lote.
     
-    IMPORTANTE: Las dosis deben ser realistas para agricultura orgánica. Responde ÚNICAMENTE en JSON.`;
-
-    let parts: any[] = [{ text: textPrompt }];
-    if (input.healthPhoto) {
-      parts.push({ inlineData: { mimeType: 'image/jpeg', data: input.healthPhoto.split(',')[1] } });
-    }
+    INSTRUCCIONES JSON:
+    1. radicularPlan: Dosis recomendadas por insumo sólido.
+    2. foliarPlan: Dosis recomendadas por insumo líquido.
+    3. waterRequirement: Plan de riego.
+    4. tips: Recomendaciones prácticas.
+    
+    Responde solo en JSON.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: { parts },
+      contents: { parts: [{ text: textPrompt }] },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -107,7 +100,6 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
 
     return JSON.parse(response.text.trim());
   } catch (error) {
-    console.error("Error en Generación IA:", error);
     return null;
   }
 };
@@ -115,7 +107,7 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
 export const getIndependentVisionDiagnosis = async (imageBase64: string, targetType: string): Promise<VisionReport | null> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const prompt = `Analiza visualmente esta muestra de ${targetType}. Identifica enfermedades, plagas o carencias minerales. Sugiere un tratamiento orgánico. Responde en JSON.`;
+    const prompt = `Analiza esta imagen de ${targetType}. Identifica plagas o deficiencias. Responde en JSON.`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
