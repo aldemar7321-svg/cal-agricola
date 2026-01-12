@@ -44,10 +44,14 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     - Insumos disponibles: ${productList}
     
     TAREA:
-    Consulta fuentes técnicas colombianas recientes y genera un protocolo de dosificación EXACTO adaptado a ${input.department}. 
-    Indica dosis por unidad (${isGrass ? 'metro' : 'árbol'}) y total.
+    Consulta fuentes técnicas colombianas recientes (ICA, CORPOICA/AGROSAVIA) y genera un protocolo de dosificación EXACTO.
     
-    IMPORTANTE: Responde estrictamente en formato JSON siguiendo el esquema proporcionado.`;
+    REGLA CRÍTICA DE DOSIFICACIÓN:
+    Para cada producto en 'radicularPlan' y 'foliarPlan', el campo 'dosage' DEBE indicar la cantidad para UNA SOLA PLANTA (o m2 si es césped). 
+    Ejemplo: "50g por planta", "10cc por litro/planta". 
+    No des totales generales en el campo dosage, solo dosis por unidad individual.
+    
+    IMPORTANTE: Responde estrictamente en formato JSON.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
@@ -79,7 +83,8 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
                   item: { type: Type.STRING },
                   dosage: { type: Type.STRING },
                   purpose: { type: Type.STRING }
-                }
+                },
+                required: ["item", "dosage", "purpose"]
               } 
             },
             foliarPlan: { 
@@ -90,7 +95,8 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
                   item: { type: Type.STRING },
                   dosage: { type: Type.STRING },
                   purpose: { type: Type.STRING }
-                }
+                },
+                required: ["item", "dosage", "purpose"]
               } 
             },
             elementalFormulation: {
@@ -116,7 +122,6 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     
     const advice = extractJson(text) as AIAdvice;
 
-    // Extraer fuentes de groundingChunks si existen
     const sources: GroundingSource[] = [];
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (chunks) {
