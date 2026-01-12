@@ -19,9 +19,45 @@ export enum ApplicationMode {
 }
 
 export enum ClimateType {
-  DRY = 'Seco / Verano',
-  RAINY = 'Lluvioso / Invierno',
-  MODERATE = 'Templado / Neutro'
+  DRY = 'Seco / Cálido',
+  RAINY = 'Lluvioso / Húmedo',
+  MODERATE = 'Templado / Frío'
+}
+
+export enum Department {
+  AMAZONAS = 'Amazonas',
+  ANTIOQUIA = 'Antioquia',
+  ARAUCA = 'Arauca',
+  ATLANTICO = 'Atlántico',
+  BOLIVAR = 'Bolívar',
+  BOYACA = 'Boyacá',
+  CALDAS = 'Caldas',
+  CAQUETA = 'Caquetá',
+  CASANARE = 'Casanare',
+  CAUCA = 'Cauca',
+  CESAR = 'Cesar',
+  CHOCO = 'Chocó',
+  CORDOBA = 'Córdoba',
+  CUNDINAMARCA = 'Cundinamarca',
+  GUAINIA = 'Guainía',
+  GUAVIARE = 'Guaviare',
+  HUILA = 'Huila',
+  GUAJIRA = 'La Guajira',
+  MAGDALENA = 'Magdalena',
+  META = 'Meta',
+  NARINO = 'Nariño',
+  NORTE_SANTANDER = 'Norte de Santander',
+  PUTUMAYO = 'Putumayo',
+  QUINDIO = 'Quindío',
+  RISARALDA = 'Risaralda',
+  SAN_ANDRES = 'San Andrés',
+  SANTANDER = 'Santander',
+  SUCRE = 'Sucre',
+  TOLIMA = 'Tolima',
+  VALLE_CAUCA = 'Valle del Cauca',
+  VAUPES = 'Vaupés',
+  VICHADA = 'Vichada',
+  BOGOTA = 'Bogotá D.C.'
 }
 
 export enum GrassVariety {
@@ -71,9 +107,11 @@ export enum OrganicProduct {
 }
 
 export type UnitType = 'g' | 'kg' | 'cc' | 'ml' | 'L';
+export type FrequencyUnit = 'días' | 'meses';
 
 export interface CalculationInput {
   treeType: TreeType;
+  department: Department;
   applicationMode: ApplicationMode;
   grassVariety?: GrassVariety;
   soilType: SoilType;
@@ -84,7 +122,10 @@ export interface CalculationInput {
   selectedProducts: OrganicProduct[];
   productPrices: Record<string, number>;
   manualAmounts: Record<string, number | undefined>;
+  manualPlantAmounts: Record<string, number | undefined>;
   selectedUnits: Record<string, UnitType>;
+  cycleFrequencyValue: number;
+  cycleFrequencyUnit: FrequencyUnit;
   healthStatus: 'bueno' | 'regular' | 'deficiente';
   healthPhoto?: string; // base64
   location?: {
@@ -158,35 +199,4 @@ export interface VisionReport {
     application: string;
   };
   recommendations: string[];
-}
-
-export interface PlantingFormulaItem {
-  product: string;
-  suggestedAmount: number;
-  totalAmount: number;
-  unit: string;
-  reason: string;
-}
-
-export interface PlantingFormulaRecommendation {
-  explanation: string;
-  items: PlantingFormulaItem[];
-}
-
-export interface HistoryItem {
-  id: string;
-  timestamp: number;
-  treeType: TreeType;
-  grassVariety?: GrassVariety;
-  numTrees: number;
-  unitLabel: string;
-  totalCost: number;
-  result: CalculationResult | null;
-  aiAdvice: AIAdvice | null;
-  visionReport: VisionReport | null;
-  location?: {
-    lat: number;
-    lng: number;
-  };
-  imagePreview?: string;
 }

@@ -2,6 +2,20 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { CalculationInput, AIAdvice, VisionReport } from "../types.ts";
 
+const extractJson = (text: string) => {
+  try {
+    // Busca el primer '{' y el último '}' para extraer solo el objeto JSON
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      return JSON.parse(match[0]);
+    }
+    return JSON.parse(text);
+  } catch (e) {
+    console.error("Error al extraer JSON:", e, "Texto original:", text);
+    return null;
+  }
+};
+
 export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AIAdvice | null> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -18,18 +32,22 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     
     const textPrompt = `Actúa como un experto en agronomía orgánica de precisión en Colombia.
     
+    UBICACIÓN GEOGRÁFICA:
+    - Departamento: ${input.department}
+    
     DATOS DEL CULTIVO:
     - Especie: ${speciesName}
     - Objetivo: ${input.applicationMode}
     - Cantidad: ${input.numTrees} ${unitMeasure}
     - Suelo: ${input.soilType}
-    - Clima: ${input.climate}
+    - Clima reportado: ${input.climate}
     - Estado de salud: ${input.healthStatus}
     - Insumos disponibles: ${productList}
     
     TAREA:
-    Genera un protocolo de dosificación EXACTO y profesional. 
+    Genera un protocolo de dosificación EXACTO y profesional adaptado a las condiciones de ${input.department}. 
     Debes indicar cuántos gramos/cc de cada producto usar por cada unidad (${isGrass ? 'metro' : 'árbol'}) y en total para el lote.
+    Ten en cuenta las características típicas del suelo y régimen hídrico de esta región colombiana.
     
     Responde estrictamente en formato JSON siguiendo el esquema proporcionado.`;
 
@@ -97,8 +115,7 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     const text = response.text;
     if (!text) throw new Error("Respuesta vacía de la IA");
     
-    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(cleanJson);
+    return extractJson(text);
   } catch (error) {
     console.error("Error en getAgriculturalAdvice:", error);
     return null;
@@ -109,7 +126,7 @@ export const getIndependentVisionDiagnosis = async (imageBase64: string, targetT
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    const prompt = `Actúa como un Patólogo Vegetal experto. Analiza esta imagen de una muestra de ${targetType}.
+    const prompt = `Actúa como un Patólogo Vegetal experto en cultivos colombianos. Analiza esta imagen de una muestra de ${targetType}.
     Identifica:
     1. Lectura general de la planta (color, turgencia).
     2. Identificación exacta de la plaga o deficiencia nutricional (incluyendo nombre científico si es posible).
@@ -161,8 +178,7 @@ export const getIndependentVisionDiagnosis = async (imageBase64: string, targetT
 
     const text = response.text;
     if (!text) throw new Error("Respuesta vacía de IA Vision");
-    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(cleanJson);
+    return extractJson(text);
   } catch (error) {
     console.error("Error en IA Vision:", error);
     return null;

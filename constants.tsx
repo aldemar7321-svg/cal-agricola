@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TreeType, OrganicProduct, UnitType } from './types.ts';
+import { TreeType, OrganicProduct, UnitType, Department, ClimateType } from './types.ts';
 
 export const TREE_TYPE_ICONS: Record<TreeType, React.ReactNode> = {
   [TreeType.CITRUS]: <i className="fas fa-lemon text-yellow-500"></i>,
@@ -14,6 +14,42 @@ export const TREE_TYPE_ICONS: Record<TreeType, React.ReactNode> = {
   [TreeType.GARDEN]: <i className="fas fa-spa text-pink-400"></i>,
   [TreeType.GRASS]: <i className="fas fa-align-justify text-emerald-500"></i>,
   [TreeType.FOREST]: <i className="fas fa-tree text-emerald-800"></i>,
+};
+
+export const DEPARTMENT_CLIMATE_MAP: Record<Department, ClimateType> = {
+  [Department.AMAZONAS]: ClimateType.RAINY,
+  [Department.ANTIOQUIA]: ClimateType.MODERATE,
+  [Department.ARAUCA]: ClimateType.DRY,
+  [Department.ATLANTICO]: ClimateType.DRY,
+  [Department.BOLIVAR]: ClimateType.DRY,
+  [Department.BOYACA]: ClimateType.MODERATE,
+  [Department.CALDAS]: ClimateType.MODERATE,
+  [Department.CAQUETA]: ClimateType.RAINY,
+  [Department.CASANARE]: ClimateType.DRY,
+  [Department.CAUCA]: ClimateType.MODERATE,
+  [Department.CESAR]: ClimateType.DRY,
+  [Department.CHOCO]: ClimateType.RAINY,
+  [Department.CORDOBA]: ClimateType.DRY,
+  [Department.CUNDINAMARCA]: ClimateType.MODERATE,
+  [Department.GUAINIA]: ClimateType.RAINY,
+  [Department.GUAVIARE]: ClimateType.RAINY,
+  [Department.HUILA]: ClimateType.DRY,
+  [Department.GUAJIRA]: ClimateType.DRY,
+  [Department.MAGDALENA]: ClimateType.DRY,
+  [Department.META]: ClimateType.MODERATE,
+  [Department.NARINO]: ClimateType.MODERATE,
+  [Department.NORTE_SANTANDER]: ClimateType.MODERATE,
+  [Department.PUTUMAYO]: ClimateType.RAINY,
+  [Department.QUINDIO]: ClimateType.MODERATE,
+  [Department.RISARALDA]: ClimateType.MODERATE,
+  [Department.SAN_ANDRES]: ClimateType.DRY,
+  [Department.SANTANDER]: ClimateType.MODERATE,
+  [Department.SUCRE]: ClimateType.DRY,
+  [Department.TOLIMA]: ClimateType.DRY,
+  [Department.VALLE_CAUCA]: ClimateType.MODERATE,
+  [Department.VAUPES]: ClimateType.RAINY,
+  [Department.VICHADA]: ClimateType.DRY,
+  [Department.BOGOTA]: ClimateType.MODERATE,
 };
 
 export const PRODUCT_CATEGORIES = {
@@ -102,4 +138,25 @@ export const PRODUCT_UNITS: Record<OrganicProduct, UnitType> = {
   [OrganicProduct.LEONARDITE]: 'kg',
   [OrganicProduct.DIATOMACEOUS_EARTH]: 'g',
   [OrganicProduct.MAGNESITE]: 'g',
+};
+
+export const COLOMBIAN_MARKET_PRICES: Record<OrganicProduct, number> = {
+  [OrganicProduct.POTASSIUM_SOAP]: 42,
+  [OrganicProduct.LIQUID_HUMUS]: 28,
+  [OrganicProduct.LIQUID_IRON_OXIDE]: 52,
+  [OrganicProduct.EM]: 34,
+  [OrganicProduct.MOLASSES]: 6,
+  [OrganicProduct.SULFUR_FUNGICIDE]: 38,
+  [OrganicProduct.NEEM_EXTRACT]: 78,
+  [OrganicProduct.BORON]: 16,
+  [OrganicProduct.ZINC]: 19,
+  [OrganicProduct.COPPER]: 24,
+  [OrganicProduct.COMPOST_TERRABONO]: 1850,
+  [OrganicProduct.SEA_SALT]: 3,
+  [OrganicProduct.ROCK_DUST]: 1500,
+  [OrganicProduct.PHOSPHATE_ROCK]: 1950,
+  [OrganicProduct.CALCIUM_CARBONATE]: 1100,
+  [OrganicProduct.LEONARDITE]: 5600,
+  [OrganicProduct.DIATOMACEOUS_EARTH]: 14,
+  [OrganicProduct.MAGNESITE]: 18,
 };

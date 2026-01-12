@@ -15,7 +15,7 @@
             margin: 0;
             padding: 0;
             overflow-x: hidden;
-            font-size: 16px; /* Aumentado de base */
+            font-size: 16px;
         }
         .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
@@ -28,14 +28,27 @@
             border-radius: 10px;
         }
         @media print {
+            body { background: white !important; }
+            #root > div > *:not(.print-modal-container) {
+                display: none !important;
+            }
+            .print-modal-container {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
             .no-print { display: none !important; }
-            body { background: white !important; font-size: 12pt !important; }
-            .print-full-width { width: 100% !important; margin: 0 !important; }
+            .print-shadow-none { shadow: none !important; box-shadow: none !important; }
+            .print-rounded-none { border-radius: 0 !important; }
         }
         .recharts-responsive-container {
             min-height: 250px;
         }
-        /* Ajuste de legibilidad para inputs */
         input, select, button {
             font-size: 1rem !important;
         }
