@@ -43,7 +43,6 @@ export const DEPARTMENT_CLIMATE_MAP: Record<Department, ClimateType> = {
   [Department.QUINDIO]: ClimateType.MODERATE,
   [Department.RISARALDA]: ClimateType.MODERATE,
   [Department.SAN_ANDRES]: ClimateType.DRY,
-  // Fix: Removed duplicate Department.SANTANDER property
   [Department.SANTANDER]: ClimateType.MODERATE,
   [Department.SUCRE]: ClimateType.DRY,
   [Department.TOLIMA]: ClimateType.DRY,
@@ -78,6 +77,109 @@ export const PRODUCT_CATEGORIES = {
     OrganicProduct.MAGNESITE,
     OrganicProduct.MYCORRHIZA,
   ]
+};
+
+export const PRODUCT_DETAILS: Record<OrganicProduct, { properties: string, benefits: string, precautions: string }> = {
+  [OrganicProduct.POTASSIUM_SOAP]: {
+    properties: "Sales de potasio de ácidos grasos, biodegradable, pH alcalino (9-10).",
+    benefits: "Insecticida y acaricida de contacto. Limpia melazas y negrilla. Aporte de potasio foliar.",
+    precautions: "No aplicar a pleno sol ni con temperaturas >30°C. Incompatible con productos de pH ácido."
+  },
+  [OrganicProduct.LIQUID_HUMUS]: {
+    properties: "Extracto concentrado de ácidos húmicos y fúlvicos extraídos de leonardita o compost.",
+    benefits: "Mejora la estructura del suelo, aumenta la capacidad de intercambio catiónico (CIC).",
+    precautions: "Agitar bien antes de usar. Almacenar en lugar fresco y oscuro para evitar fermentación."
+  },
+  [OrganicProduct.LIQUID_IRON_OXIDE]: {
+    properties: "Óxido de hierro quelatado o en suspensión fina de alta asimilación.",
+    benefits: "Corrige la clorosis férrica. Esencial para la síntesis de clorofila y transporte de electrones.",
+    precautions: "Evitar el contacto con la ropa (mancha). Aplicar en horas de baja radiación solar."
+  },
+  [OrganicProduct.EM]: {
+    properties: "Consorcio de bacterias ácido lácticas, levaduras y bacterias fotosintéticas.",
+    benefits: "Acelera descomposición orgánica, inhibe patógenos por competencia, mejora sanidad radicular.",
+    precautions: "No mezclar con fungicidas ni bactericidas químicos. Sensible a la luz UV directa."
+  },
+  [OrganicProduct.MOLASSES]: {
+    properties: "Subproducto denso de la caña de azúcar, alto contenido de sacarosa y minerales.",
+    benefits: "Fuente energética inmediata para la microbiota del suelo. Ayuda a la adherencia de caldos.",
+    precautions: "Diluir totalmente para evitar atracción excesiva de hormigas si se aplica foliarmente."
+  },
+  [OrganicProduct.SULFUR_FUNGICIDE]: {
+    properties: "Azufre elemental en suspensión líquida o flujo molido.",
+    benefits: "Control eficaz de oídio, ácaros y trips. Efecto repelente y nutricional secundario.",
+    precautions: "No aplicar 3 semanas antes o después de aceites. Fitotóxico en temperaturas >30°C."
+  },
+  [OrganicProduct.NEEM_EXTRACT]: {
+    properties: "Extracto de semilla de Azadirachta indica rico en azadiractina.",
+    benefits: "Inhibidor de crecimiento y antialimentario. Sistémico de baja persistencia ambiental.",
+    precautions: "Uso preferiblemente preventivo. No aplicar si hay presencia masiva de abejas libando."
+  },
+  [OrganicProduct.BORON]: {
+    properties: "Sal de boro (tetraborato de sodio o ácido bórico).",
+    benefits: "Crucial para división celular, formación de flores, transporte de azúcares y cuajado.",
+    precautions: "Respetar dosis estrictamente; el boro tiene un rango muy estrecho entre déficit y toxicidad."
+  },
+  [OrganicProduct.ZINC]: {
+    properties: "Sulfato de zinc heptahidratado soluble.",
+    benefits: "Precursor de auxinas (hormonas de crecimiento). Evita el arrosetamiento y hojas pequeñas.",
+    precautions: "Evitar mezclas directas con fosfatos concentrados para prevenir precipitación."
+  },
+  [OrganicProduct.COPPER]: {
+    properties: "Sulfato de cobre pentahidratado o hidróxido cúprico.",
+    benefits: "Fungicida y bactericida preventivo. Participa en la síntesis de lignina y metabolismo N.",
+    precautions: "Uso limitado por acumulación en suelo. No aplicar durante la floración sensible."
+  },
+  [OrganicProduct.COMPOST_TERRABONO]: {
+    properties: "Materia orgánica estabilizada por compostaje aeróbico termófilo.",
+    benefits: "Aporte gradual de NPK, aumenta retención de humedad y vida microbiana edáfica.",
+    precautions: "Asegurar que esté maduro (sin olor a amoníaco). Enterrar ligeramente para evitar deshidratación."
+  },
+  [OrganicProduct.SEA_SALT]: {
+    properties: "Sal marina virgen sin flúor ni yodo añadido.",
+    benefits: "Aporta más de 60 oligoelementos. En dosis bajas actúa como bioestimulante mineral.",
+    precautions: "No exceder dosis para evitar salinización del suelo. Diluir previamente en agua."
+  },
+  [OrganicProduct.ROCK_DUST]: {
+    properties: "Harina de rocas basálticas o graníticas ricas en silicatos y minerales.",
+    benefits: "Remineralización profunda del suelo. Aumenta la resistencia mecánica de los tejidos (Silicio).",
+    precautions: "Efecto de liberación lenta. Aplicar preferiblemente en la base del hueco de siembra."
+  },
+  [OrganicProduct.PHOSPHATE_ROCK]: {
+    properties: "Mineral de fósforo de origen sedimentario (Apatita).",
+    benefits: "Fuente de fósforo de liberación lenta. Ideal para corregir acidez y deficiencias crónicas.",
+    precautions: "Funciona mejor en suelos ácidos (pH < 5.5). Aplicar junto a materia orgánica para activar."
+  },
+  [OrganicProduct.CALCIUM_CARBONATE]: {
+    properties: "Piedra caliza molida finamente (Cal agrícola).",
+    benefits: "Corrige pH ácido, aporta calcio estructural, mejora disponibilidad de otros nutrientes.",
+    precautions: "No mezclar directamente con fertilizantes nitrogenados amoniacales (pérdida de N)."
+  },
+  [OrganicProduct.LEONARDITE]: {
+    properties: "Carbón oxidado naturalmente, fuente máxima de ácidos húmicos.",
+    benefits: "Acondicionador de suelos por excelencia. Desbloquea nutrientes fijados en el suelo.",
+    precautions: "Producto de muy alta concentración. Efecto duradero, no requiere aplicaciones frecuentes."
+  },
+  [OrganicProduct.DIATOMACEOUS_EARTH]: {
+    properties: "Fósiles de algas microscópicas compuestas por sílice pura.",
+    benefits: "Control físico de insectos rastreros (deshidratación). Aporte de silicio asimilable.",
+    precautions: "Usar mascarilla al aplicar en seco para evitar inhalación de polvo. Inerte en mojado."
+  },
+  [OrganicProduct.MAGNESITE]: {
+    properties: "Carbonato de magnesio natural.",
+    benefits: "Aporte de magnesio, núcleo de la molécula de clorofila. Esencial para la fotosíntesis.",
+    precautions: "Equilibrar con las dosis de calcio para evitar antagonismos nutricionales."
+  },
+  [OrganicProduct.MYCORRHIZA]: {
+    properties: "Inoculante de hongos formadores de micorrizas arbusculares (HMA).",
+    benefits: "Simbiosis que expande el sistema radicular hasta 100 veces. Facilita absorción de P y agua.",
+    precautions: "Aplicar en contacto directo con las raíces. No usar fungicidas sistémicos tras la aplicación."
+  },
+  [OrganicProduct.BIO_FLOS]: {
+    properties: "Complejo orgánico-mineral diseñado para la etapa reproductiva.",
+    benefits: "Estimula la inducción floral, mejora el tamaño y peso del fruto. Reduce caída de flores.",
+    precautions: "Seguir el calendario de aplicación según el estado fenológico del cultivo."
+  }
 };
 
 export const PRODUCT_NUTRIENTS: Record<OrganicProduct, { N: number, P: number, K: number, OM: number }> = {
