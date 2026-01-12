@@ -73,6 +73,7 @@ const App: React.FC = () => {
     const count = Math.max(1, input.numTrees || 1);
 
     const products: ProductResult[] = input.selectedProducts.map(p => {
+      // Priorizar la unidad seleccionada por el usuario, si no usar la por defecto
       const unit = input.selectedUnits[p] || PRODUCT_UNITS[p] || 'g';
       const price = input.productPrices[p] || 0;
       
@@ -188,7 +189,8 @@ const App: React.FC = () => {
 
   const renderProductItem = (p: OrganicProduct) => {
     const selected = input.selectedProducts.includes(p);
-    const unit = PRODUCT_UNITS[p];
+    const unit = input.selectedUnits[p] || PRODUCT_UNITS[p];
+    
     return (
       <div key={p} className={`p-4 rounded-2xl border-2 transition-all ${selected ? 'bg-emerald-50 border-emerald-500 shadow-md scale-[1.01]' : 'bg-slate-50 border-slate-100 opacity-60 hover:opacity-100'}`}>
         <label className="flex items-center gap-3 cursor-pointer mb-2">
@@ -196,14 +198,50 @@ const App: React.FC = () => {
           <span className="text-xs font-black text-[#111827]">{p}</span>
         </label>
         {selected && (
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <div className="space-y-1">
-              <label className="text-[8px] font-black uppercase text-emerald-700">Dosis ({unit})</label>
-              <input type="number" step="0.01" value={input.manualPlantAmounts[p] ?? ''} onChange={e => setInput({...input, manualPlantAmounts: {...input.manualPlantAmounts, [p]: e.target.value === '' ? undefined : parseFloat(e.target.value)}})} className="w-full p-2 text-[10px] border rounded-lg font-black bg-white" />
+          <div className="space-y-3 mt-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[8px] font-black uppercase text-emerald-700 block">Dosis Individual</label>
+                <div className="flex gap-1">
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    value={input.manualPlantAmounts[p] ?? ''} 
+                    onChange={e => setInput({...input, manualPlantAmounts: {...input.manualPlantAmounts, [p]: e.target.value === '' ? undefined : parseFloat(e.target.value)}})} 
+                    placeholder="0.00"
+                    className="flex-1 p-2 text-xs border rounded-lg font-black bg-white outline-none focus:ring-2 focus:ring-emerald-500/20" 
+                  />
+                  <select 
+                    value={unit} 
+                    onChange={e => setInput({...input, selectedUnits: {...input.selectedUnits, [p]: e.target.value as UnitType}})}
+                    className="w-16 p-2 text-[10px] border rounded-lg font-black bg-slate-50 cursor-pointer"
+                  >
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                    <option value="ml">ml</option>
+                    <option value="cc">cc</option>
+                    <option value="L">L</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[8px] font-black uppercase text-slate-500 block">Precio / {unit}</label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">$</span>
+                  <input 
+                    type="number" 
+                    value={input.productPrices[p] || ''} 
+                    onChange={e => setInput({...input, productPrices: {...input.productPrices, [p]: parseFloat(e.target.value) || 0}})} 
+                    className="w-full p-2 pl-5 text-xs border rounded-lg font-black bg-white outline-none focus:ring-2 focus:ring-emerald-500/20" 
+                  />
+                </div>
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[8px] font-black uppercase text-slate-500">Precio</label>
-              <input type="number" value={input.productPrices[p] || ''} onChange={e => setInput({...input, productPrices: {...input.productPrices, [p]: parseFloat(e.target.value) || 0}})} className="w-full p-2 text-[10px] border rounded-lg font-black bg-white" />
+            <div className="flex justify-between items-center p-2 bg-white/50 rounded-lg border border-dashed border-emerald-200">
+               <span className="text-[9px] font-black text-emerald-600 uppercase">Costo Total Item</span>
+               <span className="text-xs font-black text-[#064e3b]">
+                 ${((input.manualPlantAmounts[p] || 0) * (input.numTrees || 1) * (input.productPrices[p] || 0)).toLocaleString()} COP
+               </span>
             </div>
           </div>
         )}
@@ -229,18 +267,19 @@ const App: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-50 rounded-2xl border">
                   <span className="text-[9px] font-black text-slate-400 uppercase block">Frecuencia Recom.</span>
-                  <span className="text-sm font-black">{result.frequency}</span>
+                  <span className="text-sm font-black text-black">{result.frequency}</span>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-2xl border">
                   <span className="text-[9px] font-black text-slate-400 uppercase block">Lote</span>
-                  <span className="text-sm font-black">{input.numTrees} {currentUnitLabel}</span>
+                  <span className="text-sm font-black text-black">{input.numTrees} {currentUnitLabel}</span>
                 </div>
               </div>
               <section className="space-y-3">
+                <h3 className="text-[10px] font-black text-emerald-700 uppercase mb-2">Desglose de Aplicación</h3>
                 {result.products.map((p, idx) => (
                   <div key={idx} className="flex justify-between items-center p-4 bg-white rounded-xl border">
                     <span className="text-xs font-bold text-slate-700">{p.product}</span>
-                    <span className="text-sm font-black text-[#064e3b]">{(p.amount / Math.max(1, input.numTrees || 1)).toFixed(2)} {p.unit}</span>
+                    <span className="text-sm font-black text-black">{(p.amount / Math.max(1, input.numTrees || 1)).toFixed(2)} {p.unit}</span>
                   </div>
                 ))}
               </section>
@@ -308,7 +347,7 @@ const App: React.FC = () => {
                 <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
                    <div className="flex items-center gap-2">
                       <div className="flex-1">
-                        <label className="text-[8px] font-black uppercase text-emerald-200 block mb-1">Cada cuanto aplicar?</label>
+                        <label className="text-[8px] font-black uppercase text-emerald-200 block mb-1">Frecuencia</label>
                         <input 
                           type="number" 
                           min="1" 
@@ -329,7 +368,6 @@ const App: React.FC = () => {
                         </select>
                       </div>
                    </div>
-                   <p className="text-[9px] text-emerald-300/60 mt-3 italic font-medium text-center">Configura la periodicidad exacta para el reporte técnico.</p>
                 </div>
               </div>
 
@@ -371,7 +409,7 @@ const App: React.FC = () => {
 
               <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
                 <h2 className="text-sm font-black mb-4 text-[#064e3b] flex items-center gap-2"><i className="fas fa-boxes"></i> Insumos Disponibles</h2>
-                <div className="max-h-[500px] overflow-y-auto pr-2 custom-scrollbar space-y-4">
+                <div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar space-y-4">
                   <div className="space-y-3">
                     <h3 className="text-[9px] font-black text-blue-600 uppercase border-b pb-1">Líquidos</h3>
                     {PRODUCT_CATEGORIES.LIQUIDS.map(p => renderProductItem(p))}
@@ -394,7 +432,7 @@ const App: React.FC = () => {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                       <div>
                         <h3 className="text-2xl font-black text-[#111827]">Reporte de Dosificación</h3>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase mt-1 tracking-widest">{speciesName} • {input.numTrees} {currentUnitLabel} • {input.department}</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase mt-1 tracking-widest text-black">{speciesName} • {input.numTrees} {currentUnitLabel} • {input.department}</p>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => setShowPlantPlan(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-[9px] uppercase shadow-md">Ficha Individual</button>
@@ -405,29 +443,29 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                       <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
                         <span className="text-[8px] font-black uppercase text-emerald-600 block mb-1">Inversión Lote</span>
-                        <span className="text-2xl font-black text-[#064e3b]">${result.totalProjectCost.toLocaleString()} COP</span>
+                        <span className="text-2xl font-black text-black">${result.totalProjectCost.toLocaleString()} COP</span>
                       </div>
                       <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                         <span className="text-[8px] font-black uppercase text-blue-600 block mb-1">Periodicidad</span>
-                        <span className="text-xl font-black text-blue-900">{result.frequency}</span>
+                        <span className="text-xl font-black text-black">{result.frequency}</span>
                       </div>
                       <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                        <span className="text-[8px] font-black uppercase text-slate-500 block mb-1">Estado Salud</span>
-                        <span className="text-xl font-black text-[#111827] uppercase">{input.healthStatus}</span>
+                        <span className="text-[8px] font-black uppercase text-slate-500 block mb-1 text-black">Salud</span>
+                        <span className="text-xl font-black text-black uppercase">{input.healthStatus}</span>
                       </div>
                     </div>
 
                     <div className="overflow-x-auto rounded-xl border">
                       <table className="w-full text-left">
                         <thead className="bg-slate-50 text-[9px] font-black uppercase">
-                          <tr><th className="p-4">Insumo</th><th className="p-4">Dosis Total</th><th className="p-4">Costo Estimado</th></tr>
+                          <tr><th className="p-4 text-black">Insumo</th><th className="p-4 text-black">Dosis Total</th><th className="p-4 text-black">Costo Estimado</th></tr>
                         </thead>
                         <tbody className="text-xs">
                           {result.products.map((p, idx) => (
                             <tr key={idx} className="border-t hover:bg-emerald-50/20">
-                              <td className="p-4 font-bold">{p.product}</td>
-                              <td className="p-4"><span className="px-2 py-1 bg-emerald-100 text-emerald-800 rounded font-black">{p.amount.toLocaleString()} {p.unit}</span></td>
-                              <td className="p-4 font-black">${p.totalCost.toLocaleString()}</td>
+                              <td className="p-4 font-bold text-black">{p.product}</td>
+                              <td className="p-4"><span className="px-2 py-1 bg-slate-100 text-black rounded font-black">{p.amount.toLocaleString()} {p.unit}</span></td>
+                              <td className="p-4 font-black text-black">${p.totalCost.toLocaleString()}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -437,15 +475,15 @@ const App: React.FC = () => {
 
                   {aiAdvice && (
                     <div ref={aiSectionRef} className="bg-white p-8 rounded-[2.5rem] shadow-2xl border-4 border-emerald-50 space-y-8 animate-in slide-in-from-bottom duration-500">
-                       <div className="flex items-center gap-3 border-b pb-4"><i className="fas fa-robot text-emerald-500 text-2xl"></i><h3 className="text-xl font-black text-[#064e3b]">Asesoría Gemini 3 Grounding</h3></div>
+                       <div className="flex items-center gap-3 border-b pb-4"><i className="fas fa-robot text-emerald-500 text-2xl"></i><h3 className="text-xl font-black text-black uppercase">Asesoría Técnica Gemini</h3></div>
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-4">
-                            <h4 className="text-sm font-black text-slate-800 uppercase">Tips Profesionales</h4>
-                            <ul className="space-y-2">{aiAdvice.tips.map((tip, i) => (<li key={i} className="text-xs text-slate-600 flex gap-2"><span className="text-emerald-500">•</span> {tip}</li>))}</ul>
+                            <h4 className="text-sm font-black text-black uppercase">Recomendaciones</h4>
+                            <ul className="space-y-2">{aiAdvice.tips.map((tip, i) => (<li key={i} className="text-xs text-black font-medium flex gap-2"><span className="text-emerald-500">•</span> {tip}</li>))}</ul>
                           </div>
-                          <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-                            <h4 className="text-sm font-black text-emerald-800 uppercase mb-2">Consejo por Ciclo ({input.cycleFrequencyUnit})</h4>
-                            <p className="text-xs text-emerald-700 italic">{aiAdvice.seasonalAdvice}</p>
+                          <div className="p-4 bg-slate-50 rounded-2xl border">
+                            <h4 className="text-sm font-black text-black uppercase mb-2">Consejo por Ciclo</h4>
+                            <p className="text-xs text-black italic font-medium leading-relaxed">{aiAdvice.seasonalAdvice}</p>
                           </div>
                        </div>
 
@@ -467,15 +505,12 @@ const App: React.FC = () => {
                                       <i className="fas fa-external-link-alt"></i>
                                     </div>
                                     <div className="overflow-hidden">
-                                      <p className="text-[10px] font-black text-black truncate uppercase tracking-tight group-hover:text-emerald-600">{src.title}</p>
+                                      <p className="text-[10px] font-black text-black truncate uppercase tracking-tight">{src.title}</p>
                                       <p className="text-[8px] text-black opacity-50 truncate">{src.uri}</p>
                                     </div>
                                  </a>
                                ))}
                             </div>
-                            <p className="text-[8px] text-black opacity-40 mt-4 font-bold italic">
-                              * Información validada mediante búsqueda en tiempo real. Los enlaces dirigen a fuentes externas de agronomía.
-                            </p>
                          </div>
                        )}
                     </div>
@@ -484,8 +519,8 @@ const App: React.FC = () => {
               ) : (
                 <div className="bg-white rounded-[2rem] p-20 text-center border-4 border-dashed border-slate-200 shadow-inner flex flex-col items-center">
                   <div className="h-24 w-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 text-4xl text-slate-200 shadow-inner"><i className="fas fa-leaf"></i></div>
-                  <h3 className="text-2xl font-black text-[#064e3b] mb-2 uppercase">Panel de Dosificación</h3>
-                  <p className="text-slate-400 text-sm font-medium">Configura el departamento, la frecuencia y los insumos para generar el plan.</p>
+                  <h3 className="text-2xl font-black text-[#064e3b] mb-2 uppercase">Dosificación Agrotécnica</h3>
+                  <p className="text-slate-400 text-sm font-medium">Configure los parámetros para generar el desglose de insumos.</p>
                 </div>
               )}
             </section>
@@ -516,21 +551,21 @@ const App: React.FC = () => {
                       </div>
                       <div className="p-4 bg-emerald-50 rounded-2xl">
                          <h4 className="text-[10px] font-black uppercase text-emerald-600 mb-1">Observación</h4>
-                         <p className="text-xs font-bold text-emerald-900 leading-relaxed">{visionReport.plantReading}</p>
+                         <p className="text-xs font-bold text-emerald-900 leading-relaxed text-black">{visionReport.plantReading}</p>
                       </div>
                     </div>
                     <div className="space-y-8">
                        <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border relative">
                           <div className={`absolute top-0 right-0 p-4 font-black uppercase text-[10px] rounded-bl-3xl ${visionReport.pestAnalysis.severity === 'Crítica' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}>{visionReport.pestAnalysis.severity}</div>
                           <h4 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2"><i className="fas fa-bug text-red-400"></i> Hallazgo</h4>
-                          <p className="text-2xl font-black text-[#064e3b] mb-1">{visionReport.pestAnalysis.identifiedPest}</p>
+                          <p className="text-2xl font-black text-black mb-1">{visionReport.pestAnalysis.identifiedPest}</p>
                           <div className="p-4 bg-slate-50 rounded-2xl border mt-4">
                              <span className="text-[9px] font-black uppercase text-slate-400 block mb-1">Síntomas</span>
-                             <p className="text-xs font-bold text-slate-600">{visionReport.pestAnalysis.symptoms}</p>
+                             <p className="text-xs font-bold text-black">{visionReport.pestAnalysis.symptoms}</p>
                           </div>
                        </div>
                        <div className="bg-[#064e3b] p-8 rounded-[2.5rem] shadow-xl text-white">
-                          <h4 className="text-lg font-black mb-6 flex items-center gap-2"><i className="fas fa-mortar-pestle text-emerald-400"></i> Remedio Bio</h4>
+                          <h4 className="text-lg font-black mb-6 flex items-center gap-2 text-white"><i className="fas fa-mortar-pestle text-emerald-400"></i> Remedio Bio</h4>
                           <div className="space-y-4">
                              <div className="flex flex-wrap gap-2">{visionReport.biologicalRemedy.ingredients.map((ing, i) => (<span key={i} className="px-3 py-1 bg-white/10 rounded-full text-[8px] font-black uppercase">{ing}</span>))}</div>
                              <p className="text-xs leading-relaxed opacity-90"><strong className="text-emerald-400">Preparación:</strong> {visionReport.biologicalRemedy.preparation}</p>
