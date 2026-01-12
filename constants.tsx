@@ -43,6 +43,7 @@ export const DEPARTMENT_CLIMATE_MAP: Record<Department, ClimateType> = {
   [Department.QUINDIO]: ClimateType.MODERATE,
   [Department.RISARALDA]: ClimateType.MODERATE,
   [Department.SAN_ANDRES]: ClimateType.DRY,
+  // Fix: Removed duplicate Department.SANTANDER property
   [Department.SANTANDER]: ClimateType.MODERATE,
   [Department.SUCRE]: ClimateType.DRY,
   [Department.TOLIMA]: ClimateType.DRY,
@@ -61,6 +62,7 @@ export const PRODUCT_CATEGORIES = {
     OrganicProduct.MOLASSES,
     OrganicProduct.SULFUR_FUNGICIDE,
     OrganicProduct.NEEM_EXTRACT,
+    OrganicProduct.BIO_FLOS,
   ],
   SOLIDS: [
     OrganicProduct.BORON,
@@ -74,6 +76,7 @@ export const PRODUCT_CATEGORIES = {
     OrganicProduct.LEONARDITE,
     OrganicProduct.DIATOMACEOUS_EARTH,
     OrganicProduct.MAGNESITE,
+    OrganicProduct.MYCORRHIZA,
   ]
 };
 
@@ -96,6 +99,8 @@ export const PRODUCT_NUTRIENTS: Record<OrganicProduct, { N: number, P: number, K
   [OrganicProduct.LEONARDITE]: { N: 5, P: 2, K: 2, OM: 95 },
   [OrganicProduct.DIATOMACEOUS_EARTH]: { N: 0, P: 5, K: 5, OM: 0 },
   [OrganicProduct.MAGNESITE]: { N: 0, P: 0, K: 0, OM: 0 },
+  [OrganicProduct.MYCORRHIZA]: { N: 0, P: 20, K: 0, OM: 30 },
+  [OrganicProduct.BIO_FLOS]: { N: 8, P: 4, K: 6, OM: 15 },
 };
 
 export const BASE_RATES: Record<OrganicProduct, number> = {
@@ -117,6 +122,8 @@ export const BASE_RATES: Record<OrganicProduct, number> = {
   [OrganicProduct.LEONARDITE]: 0.1,
   [OrganicProduct.DIATOMACEOUS_EARTH]: 50,
   [OrganicProduct.MAGNESITE]: 15,
+  [OrganicProduct.MYCORRHIZA]: 0.05,
+  [OrganicProduct.BIO_FLOS]: 5,
 };
 
 export const PRODUCT_UNITS: Record<OrganicProduct, UnitType> = {
@@ -138,6 +145,8 @@ export const PRODUCT_UNITS: Record<OrganicProduct, UnitType> = {
   [OrganicProduct.LEONARDITE]: 'kg',
   [OrganicProduct.DIATOMACEOUS_EARTH]: 'g',
   [OrganicProduct.MAGNESITE]: 'g',
+  [OrganicProduct.MYCORRHIZA]: 'kg',
+  [OrganicProduct.BIO_FLOS]: 'ml',
 };
 
 export const COLOMBIAN_MARKET_PRICES: Record<OrganicProduct, number> = {
@@ -159,4 +168,6 @@ export const COLOMBIAN_MARKET_PRICES: Record<OrganicProduct, number> = {
   [OrganicProduct.LEONARDITE]: 5600,
   [OrganicProduct.DIATOMACEOUS_EARTH]: 14,
   [OrganicProduct.MAGNESITE]: 18,
+  [OrganicProduct.MYCORRHIZA]: 8500,
+  [OrganicProduct.BIO_FLOS]: 45,
 };

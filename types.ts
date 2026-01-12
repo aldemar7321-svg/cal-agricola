@@ -103,7 +103,9 @@ export enum OrganicProduct {
   CALCIUM_CARBONATE = 'Carbonato de Calcio',
   LEONARDITE = 'Leonardita',
   DIATOMACEOUS_EARTH = 'Tierra de Diatomeas',
-  MAGNESITE = 'Magnesita'
+  MAGNESITE = 'Magnesita',
+  MYCORRHIZA = 'Micorrizas',
+  BIO_FLOS = 'Bio Flos - EcoGenesis'
 }
 
 export type UnitType = 'g' | 'kg' | 'cc' | 'ml' | 'L';
