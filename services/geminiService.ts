@@ -1,10 +1,9 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { CalculationInput, AIAdvice, VisionReport } from "../types.ts";
+import { CalculationInput, AIAdvice, VisionReport, GroundingSource } from "../types.ts";
 
 const extractJson = (text: string) => {
   try {
-    // Busca el primer '{' y el último '}' para extraer solo el objeto JSON
     const match = text.match(/\{[\s\S]*\}/);
     if (match) {
       return JSON.parse(match[0]);
@@ -45,16 +44,16 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     - Insumos disponibles: ${productList}
     
     TAREA:
-    Genera un protocolo de dosificación EXACTO y profesional adaptado a las condiciones de ${input.department}. 
-    Debes indicar cuántos gramos/cc de cada producto usar por cada unidad (${isGrass ? 'metro' : 'árbol'}) y en total para el lote.
-    Ten en cuenta las características típicas del suelo y régimen hídrico de esta región colombiana.
+    Consulta fuentes técnicas colombianas recientes y genera un protocolo de dosificación EXACTO adaptado a ${input.department}. 
+    Indica dosis por unidad (${isGrass ? 'metro' : 'árbol'}) y total.
     
-    Responde estrictamente en formato JSON siguiendo el esquema proporcionado.`;
+    IMPORTANTE: Responde estrictamente en formato JSON siguiendo el esquema proporcionado.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: { parts: [{ text: textPrompt }] },
       config: {
+        tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -115,7 +114,27 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     const text = response.text;
     if (!text) throw new Error("Respuesta vacía de la IA");
     
-    return extractJson(text);
+    const advice = extractJson(text) as AIAdvice;
+
+    // Extraer fuentes de groundingChunks si existen
+    const sources: GroundingSource[] = [];
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    if (chunks) {
+      chunks.forEach((chunk: any) => {
+        if (chunk.web && chunk.web.uri) {
+          sources.push({
+            title: chunk.web.title || "Fuente técnica",
+            uri: chunk.web.uri
+          });
+        }
+      });
+    }
+
+    if (advice) {
+      advice.sources = sources.length > 0 ? sources : undefined;
+    }
+
+    return advice;
   } catch (error) {
     console.error("Error en getAgriculturalAdvice:", error);
     return null;

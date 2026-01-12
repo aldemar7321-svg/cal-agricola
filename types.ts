@@ -109,6 +109,11 @@ export enum OrganicProduct {
 export type UnitType = 'g' | 'kg' | 'cc' | 'ml' | 'L';
 export type FrequencyUnit = 'días' | 'meses';
 
+export interface GroundingSource {
+  title: string;
+  uri: string;
+}
+
 export interface CalculationInput {
   treeType: TreeType;
   department: Department;
@@ -188,6 +193,7 @@ export interface AIAdvice {
     frequency: string;
     technique: string;
   };
+  sources?: GroundingSource[];
 }
 
 export interface VisionReport {

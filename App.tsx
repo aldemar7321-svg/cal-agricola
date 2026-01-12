@@ -283,7 +283,6 @@ const App: React.FC = () => {
         {activeTab !== 'vision' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <aside className="lg:col-span-4 space-y-6 no-print">
-              {/* MODULO DE UBICACION */}
               <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
                 <h2 className="text-sm font-black mb-4 text-[#064e3b] flex items-center gap-2"><i className="fas fa-map-marked-alt"></i> Ubicación Regional</h2>
                 <div className="grid grid-cols-1 gap-4">
@@ -302,7 +301,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* MODULO DE FRECUENCIA - EDITABLE EN DIAS Y MESES */}
               <div className="bg-[#064e3b] p-6 rounded-[2rem] shadow-xl border border-emerald-900">
                 <h2 className="text-sm font-black mb-4 text-emerald-400 flex items-center gap-2">
                    <i className="fas fa-calendar-check"></i> Ciclo de Aplicación
@@ -439,7 +437,7 @@ const App: React.FC = () => {
 
                   {aiAdvice && (
                     <div ref={aiSectionRef} className="bg-white p-8 rounded-[2.5rem] shadow-2xl border-4 border-emerald-50 space-y-8 animate-in slide-in-from-bottom duration-500">
-                       <div className="flex items-center gap-3 border-b pb-4"><i className="fas fa-robot text-emerald-500 text-2xl"></i><h3 className="text-xl font-black text-[#064e3b]">Asesoría Gemini 3</h3></div>
+                       <div className="flex items-center gap-3 border-b pb-4"><i className="fas fa-robot text-emerald-500 text-2xl"></i><h3 className="text-xl font-black text-[#064e3b]">Asesoría Gemini 3 Grounding</h3></div>
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-4">
                             <h4 className="text-sm font-black text-slate-800 uppercase">Tips Profesionales</h4>
@@ -450,6 +448,36 @@ const App: React.FC = () => {
                             <p className="text-xs text-emerald-700 italic">{aiAdvice.seasonalAdvice}</p>
                           </div>
                        </div>
+
+                       {aiAdvice.sources && aiAdvice.sources.length > 0 && (
+                         <div className="pt-6 border-t border-slate-100">
+                            <h4 className="text-xs font-black text-black uppercase mb-4 flex items-center gap-2">
+                              <i className="fas fa-book-open"></i> Fuentes y Referencias Técnicas
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                               {aiAdvice.sources.map((src, i) => (
+                                 <a 
+                                   key={i} 
+                                   href={src.uri} 
+                                   target="_blank" 
+                                   rel="noopener noreferrer" 
+                                   className="p-3 bg-slate-50 border rounded-xl flex items-center gap-3 hover:bg-white hover:shadow-md transition-all group"
+                                 >
+                                    <div className="h-8 w-8 bg-black text-white rounded-lg flex items-center justify-center text-xs flex-shrink-0">
+                                      <i className="fas fa-external-link-alt"></i>
+                                    </div>
+                                    <div className="overflow-hidden">
+                                      <p className="text-[10px] font-black text-black truncate uppercase tracking-tight group-hover:text-emerald-600">{src.title}</p>
+                                      <p className="text-[8px] text-black opacity-50 truncate">{src.uri}</p>
+                                    </div>
+                                 </a>
+                               ))}
+                            </div>
+                            <p className="text-[8px] text-black opacity-40 mt-4 font-bold italic">
+                              * Información validada mediante búsqueda en tiempo real. Los enlaces dirigen a fuentes externas de agronomía.
+                            </p>
+                         </div>
+                       )}
                     </div>
                   )}
                 </div>
