@@ -114,6 +114,14 @@ export interface GroundingSource {
   uri: string;
 }
 
+export interface ClientData {
+  firstName: string;
+  lastName: string;
+  location: string;
+  contact: string;
+  email: string;
+}
+
 export interface CalculationInput {
   treeType: TreeType;
   department: Department;
@@ -152,6 +160,15 @@ export interface CalculationResult {
   totalCostPerUnit: number;
   totalProjectCost: number;
   frequency: string;
+}
+
+export interface HistoryRecord {
+  id: string;
+  consecutive: number;
+  date: string;
+  client: ClientData;
+  input: CalculationInput;
+  result: CalculationResult;
 }
 
 export interface NutritionStep {

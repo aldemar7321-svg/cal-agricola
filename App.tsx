@@ -1,15 +1,23 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { TreeType, SoilType, OrganicProduct, CalculationInput, CalculationResult, AIAdvice, ProductResult, UnitType, GrassMeasureMode, GrassVariety, ClimateType, VisionReport, ApplicationMode, FrequencyUnit, Department } from './types.ts';
+import { TreeType, SoilType, OrganicProduct, CalculationInput, CalculationResult, AIAdvice, ProductResult, UnitType, GrassMeasureMode, GrassVariety, ClimateType, VisionReport, ApplicationMode, FrequencyUnit, Department, ClientData, HistoryRecord } from './types.ts';
 import { BASE_RATES, PRODUCT_UNITS, TREE_TYPE_ICONS, PRODUCT_NUTRIENTS, COLOMBIAN_MARKET_PRICES, PRODUCT_CATEGORIES, DEPARTMENT_CLIMATE_MAP } from './constants.tsx';
 import { getAgriculturalAdvice, getIndependentVisionDiagnosis } from './services/geminiService.ts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'calculator' | 'grass_pro' | 'vision'>('calculator');
+  const [activeTab, setActiveTab] = useState<'calculator' | 'grass_pro' | 'vision' | 'history'>('calculator');
   const [showPlantPlan, setShowPlantPlan] = useState(false);
+  const [clientData, setClientData] = useState<ClientData>({
+    firstName: '',
+    lastName: '',
+    location: '',
+    contact: '',
+    email: ''
+  });
+  
+  const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [input, setInput] = useState<CalculationInput>({
     treeType: TreeType.CITRUS,
     department: Department.ANTIOQUIA,
@@ -36,33 +44,52 @@ const App: React.FC = () => {
   const [visionImage, setVisionImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fetchingLocation, setFetchingLocation] = useState(false);
   
   const aiSectionRef = useRef<HTMLDivElement>(null);
   const visionFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load history and consecutive from localStorage
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('agro_history');
+    if (savedHistory) {
+      setHistory(JSON.parse(savedHistory));
+    }
+  }, []);
+
+  const saveToHistory = () => {
+    if (!result) return;
+    
+    const nextConsecutive = history.length > 0 
+      ? Math.max(...history.map(h => h.consecutive)) + 1 
+      : 1;
+
+    const newRecord: HistoryRecord = {
+      id: crypto.randomUUID(),
+      consecutive: nextConsecutive,
+      date: new Date().toLocaleString(),
+      client: { ...clientData },
+      input: { ...input },
+      result: { ...result }
+    };
+
+    const updatedHistory = [newRecord, ...history];
+    setHistory(updatedHistory);
+    localStorage.setItem('agro_history', JSON.stringify(updatedHistory));
+    alert(`Registro #${nextConsecutive} guardado exitosamente para ${clientData.firstName || 'Cliente'}.`);
+  };
+
+  const deleteHistoryRecord = (id: string) => {
+    if (confirm('¿Estás seguro de eliminar este registro?')) {
+      const updated = history.filter(h => h.id !== id);
+      setHistory(updated);
+      localStorage.setItem('agro_history', JSON.stringify(updated));
+    }
+  };
 
   const isGrassTab = activeTab === 'grass_pro';
   const currentType = isGrassTab ? TreeType.GRASS : input.treeType;
   const currentUnitLabel = isGrassTab ? input.grassMode : 'plantas';
   const speciesName = isGrassTab ? `Grama ${input.grassVariety}` : input.treeType;
-
-  const captureLocation = useCallback(() => {
-    if (!navigator.geolocation) return;
-    setFetchingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setInput(prev => ({
-          ...prev,
-          location: { lat: position.coords.latitude, lng: position.coords.longitude }
-        }));
-        setFetchingLocation(false);
-      },
-      () => setFetchingLocation(false),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-  }, []);
-
-  useEffect(() => { captureLocation(); }, [captureLocation]);
 
   const calculateLocalData = useCallback(() => {
     let modifier = 1.0;
@@ -73,7 +100,6 @@ const App: React.FC = () => {
     const count = Math.max(1, input.numTrees || 1);
 
     const products: ProductResult[] = input.selectedProducts.map(p => {
-      // Priorizar la unidad seleccionada por el usuario, si no usar la por defecto
       const unit = input.selectedUnits[p] || PRODUCT_UNITS[p] || 'g';
       const price = input.productPrices[p] || 0;
       
@@ -154,23 +180,40 @@ const App: React.FC = () => {
     reader.readAsDataURL(file);
   }, [input.treeType, isGrassTab]);
 
-  const generatePDF = () => {
-    if (!result) return;
+  const generatePDF = (customRecord?: HistoryRecord) => {
+    const targetResult = customRecord ? customRecord.result : result;
+    const targetInput = customRecord ? customRecord.input : input;
+    const targetClient = customRecord ? customRecord.client : clientData;
+    const targetSpecies = customRecord ? (targetInput.treeType === TreeType.GRASS ? `Grama ${targetInput.grassVariety}` : targetInput.treeType) : speciesName;
+
+    if (!targetResult) return;
     const doc = new jsPDF();
     doc.setFillColor(6, 78, 59);
     doc.rect(0, 0, 210, 50, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
     doc.text('REPORTE AGROVISION CO', 15, 25);
-    doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
+    if (customRecord) doc.text(`CONSECUTIVO: #${customRecord.consecutive.toString().padStart(3, '0')}`, 15, 35);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DATOS DEL CLIENTE', 15, 60);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Nombre: ${targetClient.firstName} ${targetClient.lastName}`, 15, 68);
+    doc.text(`Lugar: ${targetClient.location || targetInput.department}`, 15, 75);
+    doc.text(`Contacto: ${targetClient.contact}`, 15, 82);
+    doc.text(`Email: ${targetClient.email}`, 15, 89);
+
     const meta = [
-      [`Cultivo:`, speciesName],
-      [`Ubicación:`, `${input.department}`],
-      [`Frecuencia:`, result.frequency],
-      [`Total Inversión:`, `$${result.totalProjectCost.toLocaleString()} COP`]
+      [`Cultivo:`, targetSpecies],
+      [`Ubicación:`, `${targetInput.department}`],
+      [`Frecuencia:`, targetResult.frequency],
+      [`Total Inversión:`, `$${targetResult.totalProjectCost.toLocaleString()} COP`]
     ];
-    let y = 65;
+    let y = 105;
     meta.forEach(([l, v]) => {
       doc.setFont('helvetica', 'bold');
       doc.text(l, 15, y);
@@ -181,10 +224,10 @@ const App: React.FC = () => {
     autoTable(doc, {
       startY: y + 5,
       head: [['Insumo', 'Dosis Total', 'Costo']],
-      body: result.products.map(p => [p.product, `${p.amount} ${p.unit}`, `$${p.totalCost.toLocaleString()}`]),
-      headStyles: { fillColor: [16, 185, 129] }
+      body: targetResult.products.map(p => [p.product, `${p.amount} ${p.unit}`, `$${p.totalCost.toLocaleString()}`]),
+      headStyles: { fillColor: [6, 78, 59] }
     });
-    doc.save(`AgroVision_${speciesName}.pdf`);
+    doc.save(`AgroVision_${targetClient.lastName || 'Reporte'}_${targetSpecies}.pdf`);
   };
 
   const renderProductItem = (p: OrganicProduct) => {
@@ -195,7 +238,7 @@ const App: React.FC = () => {
       <div key={p} className={`p-4 rounded-2xl border-2 transition-all ${selected ? 'bg-emerald-50 border-emerald-500 shadow-md scale-[1.01]' : 'bg-slate-50 border-slate-100 opacity-60 hover:opacity-100'}`}>
         <label className="flex items-center gap-3 cursor-pointer mb-2">
           <input type="checkbox" checked={selected} onChange={() => setInput(prev => ({ ...prev, selectedProducts: selected ? prev.selectedProducts.filter(x => x !== p) : [...prev.selectedProducts, p] }))} className="accent-emerald-600 h-5 w-5" />
-          <span className="text-xs font-black text-[#111827]">{p}</span>
+          <span className="text-xs font-black text-black">{p}</span>
         </label>
         {selected && (
           <div className="space-y-3 mt-3">
@@ -236,12 +279,6 @@ const App: React.FC = () => {
                   />
                 </div>
               </div>
-            </div>
-            <div className="flex justify-between items-center p-2 bg-white/50 rounded-lg border border-dashed border-emerald-200">
-               <span className="text-[9px] font-black text-emerald-600 uppercase">Costo Total Item</span>
-               <span className="text-xs font-black text-[#064e3b]">
-                 ${((input.manualPlantAmounts[p] || 0) * (input.numTrees || 1) * (input.productPrices[p] || 0)).toLocaleString()} COP
-               </span>
             </div>
           </div>
         )}
@@ -302,9 +339,9 @@ const App: React.FC = () => {
             </div>
           </div>
           <nav className="flex bg-white/10 rounded-full p-1 border border-white/20">
-            {['calculator', 'grass_pro', 'vision'].map(tab => (
+            {['calculator', 'grass_pro', 'vision', 'history'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-5 py-2 rounded-full text-[10px] font-black transition-all ${activeTab === tab ? 'bg-white text-[#064e3b] shadow-lg' : 'text-white hover:bg-white/10'}`}>
-                {tab === 'calculator' ? 'CULTIVOS' : tab === 'grass_pro' ? 'CÉSPED' : 'IA VISION'}
+                {tab === 'calculator' ? 'CULTIVOS' : tab === 'grass_pro' ? 'CÉSPED' : tab === 'vision' ? 'IA VISION' : 'HISTORIAL'}
               </button>
             ))}
           </nav>
@@ -312,57 +349,116 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 mt-8">
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-xl flex justify-between items-center animate-in slide-in-from-top duration-300">
-            <div className="flex items-center gap-3"><i className="fas fa-exclamation-circle"></i><p className="text-sm font-bold">{error}</p></div>
-            <button onClick={() => setError(null)} className="text-red-900 font-black text-[10px] uppercase">Ok</button>
+        {activeTab === 'history' ? (
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl border animate-in fade-in duration-500">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h2 className="text-2xl font-black text-[#064e3b] uppercase">Historial de Clientes</h2>
+                <p className="text-xs font-bold text-slate-500 uppercase mt-1">Registros de fórmulas y dosificaciones guardadas.</p>
+              </div>
+              <div className="h-12 w-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center font-black">
+                {history.length}
+              </div>
+            </div>
+            {history.length === 0 ? (
+              <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed">
+                <i className="fas fa-folder-open text-4xl text-slate-300 mb-4"></i>
+                <p className="text-slate-400 font-bold uppercase text-xs">No hay registros guardados aún.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 text-[10px] font-black uppercase text-black border-b">
+                    <tr>
+                      <th className="p-4">#</th>
+                      <th className="p-4">Fecha</th>
+                      <th className="p-4">Cliente</th>
+                      <th className="p-4">Cultivo</th>
+                      <th className="p-4">Inversión</th>
+                      <th className="p-4 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-xs text-black font-medium">
+                    {history.map((h) => (
+                      <tr key={h.id} className="border-b hover:bg-emerald-50/20 transition-colors">
+                        <td className="p-4 font-black">#{h.consecutive.toString().padStart(3, '0')}</td>
+                        <td className="p-4 text-slate-500">{h.date}</td>
+                        <td className="p-4">
+                          <p className="font-black text-black uppercase">{h.client.firstName} {h.client.lastName}</p>
+                          <p className="text-[9px] text-slate-400">{h.client.email}</p>
+                        </td>
+                        <td className="p-4 uppercase">{h.input.treeType === TreeType.GRASS ? `Grama ${h.input.grassVariety}` : h.input.treeType}</td>
+                        <td className="p-4 font-black text-emerald-700">${h.result.totalProjectCost.toLocaleString()}</td>
+                        <td className="p-4">
+                          <div className="flex justify-center gap-2">
+                            <button onClick={() => generatePDF(h)} className="h-8 w-8 bg-slate-900 text-white rounded-lg hover:bg-black transition-colors" title="Exportar PDF"><i className="fas fa-file-pdf"></i></button>
+                            <button onClick={() => deleteHistoryRecord(h.id)} className="h-8 w-8 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors" title="Eliminar"><i className="fas fa-trash-alt"></i></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-
-        {activeTab !== 'vision' ? (
+        ) : activeTab !== 'vision' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <aside className="lg:col-span-4 space-y-6 no-print">
+              {/* MODULO DATOS CLIENTE */}
+              <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-blue-50">
+                <h2 className="text-sm font-black mb-4 text-[#064e3b] flex items-center gap-2"><i className="fas fa-user-tie text-blue-500"></i> Datos del Cliente</h2>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black uppercase text-slate-400">Nombres</label>
+                      <input type="text" value={clientData.firstName} onChange={e => setClientData({...clientData, firstName: e.target.value})} className="w-full p-2 text-xs border rounded-lg font-bold bg-slate-50" placeholder="Ej: Juan" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black uppercase text-slate-400">Apellidos</label>
+                      <input type="text" value={clientData.lastName} onChange={e => setClientData({...clientData, lastName: e.target.value})} className="w-full p-2 text-xs border rounded-lg font-bold bg-slate-50" placeholder="Ej: Pérez" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black uppercase text-slate-400">Lugar / Finca</label>
+                    <input type="text" value={clientData.location} onChange={e => setClientData({...clientData, location: e.target.value})} className="w-full p-2 text-xs border rounded-lg font-bold bg-slate-50" placeholder="Ej: Finca La Esperanza" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black uppercase text-slate-400">Contacto</label>
+                      <input type="text" value={clientData.contact} onChange={e => setClientData({...clientData, contact: e.target.value})} className="w-full p-2 text-xs border rounded-lg font-bold bg-slate-50" placeholder="300 000 0000" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black uppercase text-slate-400">Email</label>
+                      <input type="email" value={clientData.email} onChange={e => setClientData({...clientData, email: e.target.value})} className="w-full p-2 text-xs border rounded-lg font-bold bg-slate-50" placeholder="juan@correo.com" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
                 <h2 className="text-sm font-black mb-4 text-[#064e3b] flex items-center gap-2"><i className="fas fa-map-marked-alt"></i> Ubicación Regional</h2>
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-1">
                     <label className="text-[9px] font-black uppercase text-slate-400">Departamento</label>
-                    <select value={input.department} onChange={e => setInput({...input, department: e.target.value as Department, climate: DEPARTMENT_CLIMATE_MAP[e.target.value as Department]})} className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-xs">
+                    <select value={input.department} onChange={e => setInput({...input, department: e.target.value as Department, climate: DEPARTMENT_CLIMATE_MAP[e.target.value as Department]})} className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-xs text-black">
                       {Object.values(Department).map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase text-slate-400">Clima de la Zona</label>
-                    <select value={input.climate} onChange={e => setInput({...input, climate: e.target.value as ClimateType})} className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-xs">
-                      {Object.values(ClimateType).map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
 
               <div className="bg-[#064e3b] p-6 rounded-[2rem] shadow-xl border border-emerald-900">
-                <h2 className="text-sm font-black mb-4 text-emerald-400 flex items-center gap-2">
-                   <i className="fas fa-calendar-check"></i> Ciclo de Aplicación
-                </h2>
+                <h2 className="text-sm font-black mb-4 text-emerald-400 flex items-center gap-2"><i className="fas fa-calendar-check"></i> Ciclo de Aplicación</h2>
                 <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
                    <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <label className="text-[8px] font-black uppercase text-emerald-200 block mb-1">Frecuencia</label>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          value={input.cycleFrequencyValue} 
-                          onChange={e => setInput({...input, cycleFrequencyValue: parseInt(e.target.value)||1})} 
-                          className="w-full p-3 bg-white text-[#064e3b] border-0 rounded-xl font-black text-xl text-center outline-none focus:ring-4 focus:ring-emerald-400/30" 
-                        />
+                        <input type="number" min="1" value={input.cycleFrequencyValue} onChange={e => setInput({...input, cycleFrequencyValue: parseInt(e.target.value)||1})} className="w-full p-3 bg-white text-[#064e3b] border-0 rounded-xl font-black text-xl text-center outline-none" />
                       </div>
                       <div className="w-24">
                         <label className="text-[8px] font-black uppercase text-emerald-200 block mb-1">Unidad</label>
-                        <select 
-                          value={input.cycleFrequencyUnit} 
-                          onChange={e => setInput({...input, cycleFrequencyUnit: e.target.value as FrequencyUnit})} 
-                          className="w-full p-3 bg-emerald-700 text-white border-0 rounded-xl font-black text-xs appearance-none cursor-pointer hover:bg-emerald-600 transition-colors"
-                        >
+                        <select value={input.cycleFrequencyUnit} onChange={e => setInput({...input, cycleFrequencyUnit: e.target.value as FrequencyUnit})} className="w-full p-3 bg-emerald-700 text-white border-0 rounded-xl font-black text-xs appearance-none">
                           <option value="días">Días</option>
                           <option value="meses">Meses</option>
                         </select>
@@ -377,7 +473,7 @@ const App: React.FC = () => {
                   {!isGrassTab ? (
                     <div className="grid grid-cols-2 gap-2">
                       {Object.values(TreeType).filter(t => t !== TreeType.GRASS).map(t => (
-                        <button key={t} onClick={() => setInput({...input, treeType: t})} className={`p-3 rounded-xl border-2 text-[8px] font-black flex flex-col items-center gap-1 transition-all ${input.treeType === t ? 'bg-emerald-50 border-emerald-500 text-emerald-800' : 'bg-slate-50 border-slate-100'}`}>
+                        <button key={t} onClick={() => setInput({...input, treeType: t})} className={`p-3 rounded-xl border-2 text-[8px] font-black flex flex-col items-center gap-1 transition-all ${input.treeType === t ? 'bg-emerald-50 border-emerald-500 text-emerald-800' : 'bg-slate-50 border-slate-100 text-black'}`}>
                           <span className="text-lg">{TREE_TYPE_ICONS[t]}</span> {t}
                         </button>
                       ))}
@@ -385,7 +481,7 @@ const App: React.FC = () => {
                   ) : (
                     <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase text-slate-400">Variedad de Césped</label>
-                      <select value={input.grassVariety} onChange={e => setInput({...input, grassVariety: e.target.value as GrassVariety})} className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-xs">
+                      <select value={input.grassVariety} onChange={e => setInput({...input, grassVariety: e.target.value as GrassVariety})} className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-xs text-black">
                         {Object.values(GrassVariety).map(v => <option key={v} value={v}>{v}</option>)}
                       </select>
                     </div>
@@ -393,11 +489,11 @@ const App: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase text-slate-400">Cantidad ({currentUnitLabel})</label>
-                      <input type="number" min="1" value={input.numTrees} onChange={e => setInput({...input, numTrees: parseInt(e.target.value)||1})} className="w-full p-3 bg-slate-50 border rounded-xl font-black text-xs" />
+                      <input type="number" min="1" value={input.numTrees} onChange={e => setInput({...input, numTrees: parseInt(e.target.value)||1})} className="w-full p-3 bg-slate-50 border rounded-xl font-black text-xs text-black" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase text-slate-400">Salud General</label>
-                      <select value={input.healthStatus} onChange={e => setInput({...input, healthStatus: e.target.value as any})} className="w-full p-3 bg-slate-50 border rounded-xl font-black text-xs">
+                      <select value={input.healthStatus} onChange={e => setInput({...input, healthStatus: e.target.value as any})} className="w-full p-3 bg-slate-50 border rounded-xl font-black text-xs text-black">
                         <option value="bueno">Excelente</option>
                         <option value="regular">Regular</option>
                         <option value="deficiente">Crítico</option>
@@ -409,7 +505,7 @@ const App: React.FC = () => {
 
               <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
                 <h2 className="text-sm font-black mb-4 text-[#064e3b] flex items-center gap-2"><i className="fas fa-boxes"></i> Insumos Disponibles</h2>
-                <div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar space-y-4">
+                <div className="max-h-[500px] overflow-y-auto pr-2 custom-scrollbar space-y-4">
                   <div className="space-y-3">
                     <h3 className="text-[9px] font-black text-blue-600 uppercase border-b pb-1">Líquidos</h3>
                     {PRODUCT_CATEGORIES.LIQUIDS.map(p => renderProductItem(p))}
@@ -419,7 +515,7 @@ const App: React.FC = () => {
                     {PRODUCT_CATEGORIES.SOLIDS.map(p => renderProductItem(p))}
                   </div>
                 </div>
-                <button onClick={handleFetchProfessionalAdvice} disabled={loading} className="w-full mt-6 py-4 bg-[#064e3b] text-white font-black rounded-xl shadow-lg uppercase text-[10px] flex items-center justify-center gap-2 disabled:opacity-50 tracking-widest">
+                <button onClick={handleFetchProfessionalAdvice} disabled={loading} className="w-full mt-6 py-4 bg-[#064e3b] text-white font-black rounded-xl shadow-lg uppercase text-[10px] flex items-center justify-center gap-2 tracking-widest">
                   {loading ? <i className="fas fa-circle-notch animate-spin"></i> : <i className="fas fa-robot"></i>} Asesoría Técnica IA
                 </button>
               </div>
@@ -431,12 +527,13 @@ const App: React.FC = () => {
                   <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl border-4 border-emerald-50">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                       <div>
-                        <h3 className="text-2xl font-black text-[#111827]">Reporte de Dosificación</h3>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase mt-1 tracking-widest text-black">{speciesName} • {input.numTrees} {currentUnitLabel} • {input.department}</p>
+                        <h3 className="text-2xl font-black text-[#111827] uppercase">Plan de Dosificación</h3>
+                        <p className="text-[10px] font-bold text-black uppercase mt-1 tracking-widest">{speciesName} • {input.numTrees} {currentUnitLabel}</p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={saveToHistory} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[9px] uppercase shadow-md flex items-center gap-2"><i className="fas fa-save"></i> Guardar Registro</button>
                         <button onClick={() => setShowPlantPlan(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-[9px] uppercase shadow-md">Ficha Individual</button>
-                        <button onClick={generatePDF} className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[9px] uppercase shadow-md">Descargar PDF</button>
+                        <button onClick={() => generatePDF()} className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[9px] uppercase shadow-md">Exportar PDF</button>
                       </div>
                     </div>
 
@@ -447,25 +544,25 @@ const App: React.FC = () => {
                       </div>
                       <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                         <span className="text-[8px] font-black uppercase text-blue-600 block mb-1">Periodicidad</span>
-                        <span className="text-xl font-black text-black">{result.frequency}</span>
+                        <span className="text-xl font-black text-black uppercase">{result.frequency}</span>
                       </div>
                       <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                        <span className="text-[8px] font-black uppercase text-slate-500 block mb-1 text-black">Salud</span>
-                        <span className="text-xl font-black text-black uppercase">{input.healthStatus}</span>
+                        <span className="text-[8px] font-black uppercase text-slate-500 block mb-1">Lote de Trabajo</span>
+                        <span className="text-xl font-black text-black uppercase">{input.numTrees} {currentUnitLabel}</span>
                       </div>
                     </div>
 
                     <div className="overflow-x-auto rounded-xl border">
                       <table className="w-full text-left">
-                        <thead className="bg-slate-50 text-[9px] font-black uppercase">
-                          <tr><th className="p-4 text-black">Insumo</th><th className="p-4 text-black">Dosis Total</th><th className="p-4 text-black">Costo Estimado</th></tr>
+                        <thead className="bg-slate-50 text-[9px] font-black uppercase border-b text-black">
+                          <tr><th className="p-4">Insumo Orgánico</th><th className="p-4">Dosis Total Requerida</th><th className="p-4">Costo Estimado</th></tr>
                         </thead>
-                        <tbody className="text-xs">
+                        <tbody className="text-xs text-black">
                           {result.products.map((p, idx) => (
                             <tr key={idx} className="border-t hover:bg-emerald-50/20">
-                              <td className="p-4 font-bold text-black">{p.product}</td>
+                              <td className="p-4 font-bold uppercase">{p.product}</td>
                               <td className="p-4"><span className="px-2 py-1 bg-slate-100 text-black rounded font-black">{p.amount.toLocaleString()} {p.unit}</span></td>
-                              <td className="p-4 font-black text-black">${p.totalCost.toLocaleString()}</td>
+                              <td className="p-4 font-black">${p.totalCost.toLocaleString()}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -475,35 +572,24 @@ const App: React.FC = () => {
 
                   {aiAdvice && (
                     <div ref={aiSectionRef} className="bg-white p-8 rounded-[2.5rem] shadow-2xl border-4 border-emerald-50 space-y-8 animate-in slide-in-from-bottom duration-500">
-                       <div className="flex items-center gap-3 border-b pb-4"><i className="fas fa-robot text-emerald-500 text-2xl"></i><h3 className="text-xl font-black text-black uppercase">Asesoría Técnica Gemini</h3></div>
+                       <div className="flex items-center gap-3 border-b pb-4"><i className="fas fa-robot text-emerald-500 text-2xl"></i><h3 className="text-xl font-black text-black uppercase">Asesoría Técnica Gemini Grounding</h3></div>
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-4">
-                            <h4 className="text-sm font-black text-black uppercase">Recomendaciones</h4>
+                            <h4 className="text-sm font-black text-black uppercase">Recomendaciones del Experto</h4>
                             <ul className="space-y-2">{aiAdvice.tips.map((tip, i) => (<li key={i} className="text-xs text-black font-medium flex gap-2"><span className="text-emerald-500">•</span> {tip}</li>))}</ul>
                           </div>
                           <div className="p-4 bg-slate-50 rounded-2xl border">
-                            <h4 className="text-sm font-black text-black uppercase mb-2">Consejo por Ciclo</h4>
+                            <h4 className="text-sm font-black text-black uppercase mb-2">Análisis de Suelo y Clima</h4>
                             <p className="text-xs text-black italic font-medium leading-relaxed">{aiAdvice.seasonalAdvice}</p>
                           </div>
                        </div>
-
-                       {aiAdvice.sources && aiAdvice.sources.length > 0 && (
+                       {aiAdvice.sources && (
                          <div className="pt-6 border-t border-slate-100">
-                            <h4 className="text-xs font-black text-black uppercase mb-4 flex items-center gap-2">
-                              <i className="fas fa-book-open"></i> Fuentes y Referencias Técnicas
-                            </h4>
+                            <h4 className="text-xs font-black text-black uppercase mb-4 flex items-center gap-2"><i className="fas fa-book-open"></i> Fuentes y Referencias Consultadas</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                {aiAdvice.sources.map((src, i) => (
-                                 <a 
-                                   key={i} 
-                                   href={src.uri} 
-                                   target="_blank" 
-                                   rel="noopener noreferrer" 
-                                   className="p-3 bg-slate-50 border rounded-xl flex items-center gap-3 hover:bg-white hover:shadow-md transition-all group"
-                                 >
-                                    <div className="h-8 w-8 bg-black text-white rounded-lg flex items-center justify-center text-xs flex-shrink-0">
-                                      <i className="fas fa-external-link-alt"></i>
-                                    </div>
+                                 <a key={i} href={src.uri} target="_blank" rel="noopener noreferrer" className="p-3 bg-slate-50 border rounded-xl flex items-center gap-3 hover:bg-white hover:shadow-md transition-all group">
+                                    <div className="h-8 w-8 bg-black text-white rounded-lg flex items-center justify-center text-xs flex-shrink-0"><i className="fas fa-external-link-alt"></i></div>
                                     <div className="overflow-hidden">
                                       <p className="text-[10px] font-black text-black truncate uppercase tracking-tight">{src.title}</p>
                                       <p className="text-[8px] text-black opacity-50 truncate">{src.uri}</p>
@@ -520,7 +606,7 @@ const App: React.FC = () => {
                 <div className="bg-white rounded-[2rem] p-20 text-center border-4 border-dashed border-slate-200 shadow-inner flex flex-col items-center">
                   <div className="h-24 w-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 text-4xl text-slate-200 shadow-inner"><i className="fas fa-leaf"></i></div>
                   <h3 className="text-2xl font-black text-[#064e3b] mb-2 uppercase">Dosificación Agrotécnica</h3>
-                  <p className="text-slate-400 text-sm font-medium">Configure los parámetros para generar el desglose de insumos.</p>
+                  <p className="text-slate-400 text-sm font-medium">Configure los parámetros técnicos para generar el desglose de insumos.</p>
                 </div>
               )}
             </section>
@@ -551,7 +637,7 @@ const App: React.FC = () => {
                       </div>
                       <div className="p-4 bg-emerald-50 rounded-2xl">
                          <h4 className="text-[10px] font-black uppercase text-emerald-600 mb-1">Observación</h4>
-                         <p className="text-xs font-bold text-emerald-900 leading-relaxed text-black">{visionReport.plantReading}</p>
+                         <p className="text-xs font-bold text-black leading-relaxed">{visionReport.plantReading}</p>
                       </div>
                     </div>
                     <div className="space-y-8">
@@ -560,15 +646,8 @@ const App: React.FC = () => {
                           <h4 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2"><i className="fas fa-bug text-red-400"></i> Hallazgo</h4>
                           <p className="text-2xl font-black text-black mb-1">{visionReport.pestAnalysis.identifiedPest}</p>
                           <div className="p-4 bg-slate-50 rounded-2xl border mt-4">
-                             <span className="text-[9px] font-black uppercase text-slate-400 block mb-1">Síntomas</span>
-                             <p className="text-xs font-bold text-black">{visionReport.pestAnalysis.symptoms}</p>
-                          </div>
-                       </div>
-                       <div className="bg-[#064e3b] p-8 rounded-[2.5rem] shadow-xl text-white">
-                          <h4 className="text-lg font-black mb-6 flex items-center gap-2 text-white"><i className="fas fa-mortar-pestle text-emerald-400"></i> Remedio Bio</h4>
-                          <div className="space-y-4">
-                             <div className="flex flex-wrap gap-2">{visionReport.biologicalRemedy.ingredients.map((ing, i) => (<span key={i} className="px-3 py-1 bg-white/10 rounded-full text-[8px] font-black uppercase">{ing}</span>))}</div>
-                             <p className="text-xs leading-relaxed opacity-90"><strong className="text-emerald-400">Preparación:</strong> {visionReport.biologicalRemedy.preparation}</p>
+                             <span className="text-[9px] font-black uppercase text-slate-400 block mb-1">Síntomas Detectados</span>
+                             <p className="text-xs font-bold text-black leading-relaxed">{visionReport.pestAnalysis.symptoms}</p>
                           </div>
                        </div>
                     </div>
