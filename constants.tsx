@@ -16,6 +16,32 @@ export const TREE_TYPE_ICONS: Record<TreeType, React.ReactNode> = {
   [TreeType.FOREST]: <i className="fas fa-tree text-emerald-800"></i>,
 };
 
+// Matriz de Compatibilidad Técnica
+export interface CompatibilityRule {
+  status: 'compatible' | 'caution' | 'incompatible';
+  reason: string;
+  maxMixRatio?: string;
+}
+
+export const COMPATIBILITY_RULES: Record<string, Record<string, CompatibilityRule>> = {
+  [OrganicProduct.COPPER]: {
+    [OrganicProduct.EM]: { status: 'incompatible', reason: 'El cobre es bactericida y anula los microorganismos vivos.' },
+    [OrganicProduct.MYCORRHIZA]: { status: 'incompatible', reason: 'El cobre inhibe el crecimiento de hongos micorrícicos.' },
+    [OrganicProduct.POTASSIUM_SOAP]: { status: 'caution', reason: 'Riesgo de precipitación. Mezclar primero el jabón y diluir mucho el cobre.' }
+  },
+  [OrganicProduct.SULFUR_FUNGICIDE]: {
+    [OrganicProduct.NEEM_EXTRACT]: { status: 'caution', reason: 'Mezcla aceitosa + azufre bajo sol puede causar quemaduras foliares.' },
+    [OrganicProduct.POTASSIUM_SOAP]: { status: 'incompatible', reason: 'Reacción alcalina extrema que anula el efecto del azufre.' }
+  },
+  [OrganicProduct.EM]: {
+    [OrganicProduct.MOLASSES]: { status: 'compatible', reason: 'SINERGIA: La melaza alimenta y activa los microorganismos.', maxMixRatio: '1:2 (Melaza:EM)' },
+    [OrganicProduct.LIQUID_HUMUS]: { status: 'compatible', reason: 'Mejora la colonización de bacterias en el suelo.' }
+  },
+  [OrganicProduct.POTASSIUM_SOAP]: {
+    [OrganicProduct.NEEM_EXTRACT]: { status: 'compatible', reason: 'SINERGIA: El jabón actúa como surfactante potenciando el Neem.', maxMixRatio: '5ml Jabón + 3ml Neem por Litro' }
+  }
+};
+
 export const DEPARTMENT_CLIMATE_MAP: Record<Department, ClimateType> = {
   [Department.AMAZONAS]: ClimateType.RAINY,
   [Department.ANTIOQUIA]: ClimateType.MODERATE,
