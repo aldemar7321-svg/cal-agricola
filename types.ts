@@ -74,10 +74,18 @@ export enum GrassVariety {
 }
 
 export enum SoilType {
-  SANDY = 'Arenoso',
-  SILTY = 'Limoso',
-  CLAYEY = 'Arcilloso',
-  LOAMY = 'Franco'
+  ARENA = 'Arena',
+  ARENO_FRANCO = 'Areno franco',
+  FRANCO_ARENOSO = 'Franco arenoso',
+  FRANCO = 'Franco',
+  FRANCO_LIMOSO = 'Franco limoso',
+  LIMO = 'Limo',
+  FRANCO_ARCILLO_ARENOSO = 'Franco arcillo-arenoso',
+  FRANCO_ARCILLOSO = 'Franco arcilloso',
+  FRANCO_ARCILLO_LIMOSO = 'Franco arcillo-limoso',
+  ARCILLO_ARENOSO = 'Arcillo arenoso',
+  ARCILLO_LIMOSO = 'Arcillo limoso',
+  ARCILLA = 'Arcilla'
 }
 
 export enum GrassMeasureMode {
@@ -130,6 +138,11 @@ export interface CalculationInput {
   applicationMode: ApplicationMode;
   grassVariety?: GrassVariety;
   soilType: SoilType;
+  soilPercentages?: {
+    sand: number;
+    silt: number;
+    clay: number;
+  };
   climate: ClimateType;
   treeAge: number;
   numTrees: number;
@@ -142,11 +155,6 @@ export interface CalculationInput {
   cycleFrequencyValue: number;
   cycleFrequencyUnit: FrequencyUnit;
   healthStatus: 'bueno' | 'regular' | 'deficiente';
-  healthPhoto?: string; // base64
-  location?: {
-    lat: number;
-    lng: number;
-  };
 }
 
 export interface ProductResult {
