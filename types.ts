@@ -179,6 +179,7 @@ export interface HistoryRecord {
   client: ClientData;
   input: CalculationInput;
   result: CalculationResult;
+  aiAdvice?: AIAdvice | null;
 }
 
 export interface NutritionStep {
