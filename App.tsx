@@ -28,6 +28,10 @@ const App: React.FC = () => {
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<OrganicProduct | null>(null);
   const [additionalPercent, setAdditionalPercent] = useState<number>(0);
 
+  const [clientData, setClientData] = useState<ClientData>({
+    firstName: '', lastName: '', location: '', contact: '', email: ''
+  });
+
   const [input, setInput] = useState<CalculationInput & { 
     manualTotalAmounts: Record<string, number | undefined>,
     manualUnitPrices: Record<string, number | undefined>
@@ -47,7 +51,6 @@ const App: React.FC = () => {
 
   const [result, setResult] = useState<CalculationResult | null>(null);
 
-  // Lógica para determinar el tipo de suelo según el triángulo de texturas
   const getSoilTypeFromPercentages = (sand: number, silt: number, clay: number): SoilType => {
     if (clay >= 40) {
       if (sand > 45) return SoilType.ARCILLO_ARENOSO;
@@ -126,25 +129,135 @@ const App: React.FC = () => {
   const handleExportPDF = () => {
     if (!result) return;
     const doc = new jsPDF();
-    doc.setFillColor(6, 78, 59);
-    doc.rect(0, 0, 210, 40, 'F');
-    doc.setFontSize(22); doc.setTextColor(255, 255, 255);
-    doc.text('BIO-GENESIS PRO', 14, 25);
-    doc.setFontSize(9);
-    doc.text(activeTab === 'grass' ? 'REPORTE TÉCNICO DE PAISAJISMO Y CÉSPED' : 'REPORTE TÉCNICO DE INSUMOS Y COSTOS', 14, 32);
+    const primaryColor = [6, 78, 59]; // Emerald 900
+    const secondaryColor = [16, 185, 129]; // Emerald 500
 
+    // HEADER
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(0, 0, 210, 50, 'F');
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.text('BIOGENESIS PRO - INFORME TÉCNICO', 14, 25);
+    doc.setFontSize(9);
+    doc.text('Ingeniería Agronómica y Bio-Insumos Orgánicos de Precisión', 14, 33);
+    doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`, 14, 38);
+    doc.text(`N° Reporte: ${Math.floor(Math.random() * 100000)}`, 160, 38);
+
+    // DATOS DEL CLIENTE
+    doc.setFontSize(14);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('1. DATOS DEL PROPIETARIO / CLIENTE', 14, 65);
+    
     autoTable(doc, {
-      startY: 55,
-      head: [['Insumo', 'Unidad', 'Cantidad Total', 'V. Unitario', 'Subtotal (COP)']],
-      body: result.products.map(p => [p.product, p.unit, p.amount.toLocaleString(), `$${p.costPerUnit.toLocaleString()}`, `$${p.totalCost.toLocaleString()}`]),
-      foot: [
-        ['', '', '', 'SUBTOTAL', `$${result.totalProjectCost.toLocaleString()}`],
-        ['', '', '', `UTILIDAD (${additionalPercent}%)`, `$${additionalValue.toLocaleString()}`],
-        ['', '', '', 'TOTAL GENERAL', `$${grandTotal.toLocaleString()}`]
+      startY: 70,
+      head: [['Campo', 'Información del Cliente']],
+      body: [
+        ['Nombre Completo', `${clientData.firstName} ${clientData.lastName}`.trim() || 'No especificado'],
+        ['Ubicación de la Finca / Proyecto', clientData.location || 'No especificada'],
+        ['Contacto / Teléfono', clientData.contact || 'No especificado'],
+        ['Correo Electrónico', clientData.email || 'No especificado'],
       ],
-      theme: 'grid', headStyles: { fillColor: [6, 78, 59] }, footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
+      theme: 'grid',
+      headStyles: { fillColor: primaryColor },
+      columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } }
     });
-    doc.save(`Presupuesto_${activeTab === 'grass' ? 'Cesped' : 'Agro'}.pdf`);
+
+    // INFORMACIÓN TÉCNICA DEL CULTIVO
+    doc.text('2. ESPECIFICACIONES TÉCNICAS DEL CULTIVO', 14, (doc as any).lastAutoTable.finalY + 15);
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      head: [['Parámetro Técnico', 'Valor Registrado']],
+      body: [
+        ['Especie / Variedad', activeTab === 'grass' ? `Césped - ${input.grassVariety}` : input.treeType],
+        ['Departamento', input.department],
+        ['Modo de Operación', input.applicationMode],
+        ['Estado Sanitario Inicial', input.healthStatus.toUpperCase()],
+        ['Frecuencia de Nutrición', `Cada ${input.cycleFrequencyValue} ${input.cycleFrequencyUnit}`],
+        [activeTab === 'grass' ? `Área/Longitud (${input.grassMode})` : 'Población (N° Plantas)', input.numTrees.toString()],
+        ['Textura de Suelo (Granulometría)', `${input.soilType} (Arena: ${input.soilPercentages?.sand}%, Limo: ${input.soilPercentages?.silt}%, Arcilla: ${input.soilPercentages?.clay}%)`],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: primaryColor },
+    });
+
+    // PRESUPUESTO DE INSUMOS
+    doc.text('3. PRESUPUESTO Y DOSIFICACIÓN GENERAL DE INSUMOS', 14, (doc as any).lastAutoTable.finalY + 15);
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      head: [['Insumo Bio-Orgánico', 'Unidad', 'Cantidad Total', 'V. Unitario', 'Subtotal (COP)']],
+      body: result.products.map(p => [
+        p.product,
+        p.unit,
+        p.amount.toLocaleString(),
+        `$${p.costPerUnit.toLocaleString()}`,
+        `$${p.totalCost.toLocaleString()}`
+      ]),
+      foot: [
+        ['', '', '', 'SUBTOTAL INSUMOS', `$${result.totalProjectCost.toLocaleString()}`],
+        ['', '', '', `COSTOS DE GESTIÓN (${additionalPercent}%)`, `$${additionalValue.toLocaleString()}`],
+        ['', '', '', 'TOTAL INVERSIÓN', `$${grandTotal.toLocaleString()}`]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: primaryColor },
+      footStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold' }
+    });
+
+    // PLAN MAESTRO IA (Página 2)
+    if (aiAdvice) {
+      doc.addPage();
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.rect(0, 0, 210, 25, 'F');
+      doc.setFontSize(14);
+      doc.setTextColor(255, 255, 255);
+      doc.text('4. PLAN MAESTRO GENERADO POR BIO-VISION IA', 14, 16);
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+      doc.text('ESTRATEGIA RADICULAR (SUELO):', 14, 40);
+      autoTable(doc, {
+        startY: 45,
+        head: [['Producto Sugerido', 'Dosis por Aplicación', 'Función Técnica']],
+        body: aiAdvice.radicularPlan.map(p => [p.item, p.dosage, p.purpose]),
+        theme: 'striped',
+        headStyles: { fillColor: secondaryColor },
+      });
+
+      doc.text('ESTRATEGIA FOLIAR Y MANTENIMIENTO:', 14, (doc as any).lastAutoTable.finalY + 15);
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 20,
+        head: [['Producto Sugerido', 'Dosis por Aplicación', 'Función Técnica']],
+        body: aiAdvice.foliarPlan.map(p => [p.item, p.dosage, p.purpose]),
+        theme: 'striped',
+        headStyles: { fillColor: secondaryColor },
+      });
+
+      doc.text('MANEJO DE RIEGO Y RECOMENDACIONES:', 14, (doc as any).lastAutoTable.finalY + 15);
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 20,
+        head: [['Volumen Sugerido', 'Frecuencia de Riego', 'Método de Aplicación']],
+        body: [[
+          aiAdvice.waterRequirement.volume,
+          aiAdvice.waterRequirement.frequency,
+          aiAdvice.waterRequirement.technique
+        ]],
+        theme: 'grid',
+      });
+
+      doc.setFontSize(10);
+      doc.text('CONSEJOS DE MANEJO ESTACIONAL:', 14, (doc as any).lastAutoTable.finalY + 15);
+      doc.setFontSize(9);
+      const tipsText = aiAdvice.tips.join(' | ') + ". " + aiAdvice.seasonalAdvice;
+      const splitTips = doc.splitTextToSize(tipsText, 180);
+      doc.text(splitTips, 14, (doc as any).lastAutoTable.finalY + 22);
+
+      // Firma
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text('________________________________', 140, (doc as any).lastAutoTable.finalY + 60);
+      doc.text('Firma Responsable Técnico', 145, (doc as any).lastAutoTable.finalY + 65);
+    }
+
+    doc.save(`BioGenesis_Reporte_${clientData.lastName || 'Cliente'}_${new Date().getTime()}.pdf`);
   };
 
   return (
@@ -171,6 +284,24 @@ const App: React.FC = () => {
         {(activeTab === 'calculator' || activeTab === 'grass') && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <aside className="lg:col-span-4 space-y-6 no-print">
+              {/* DATOS DEL CLIENTE */}
+              <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200">
+                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">
+                  Información del Cliente
+                </h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="Nombre" value={clientData.firstName} onChange={e => setClientData({...clientData, firstName: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" />
+                    <input type="text" placeholder="Apellido" value={clientData.lastName} onChange={e => setClientData({...clientData, lastName: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" />
+                  </div>
+                  <input type="text" placeholder="Ubicación / Finca" value={clientData.location} onChange={e => setClientData({...clientData, location: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="Teléfono" value={clientData.contact} onChange={e => setClientData({...clientData, contact: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" />
+                    <input type="email" placeholder="Email" value={clientData.email} onChange={e => setClientData({...clientData, email: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" />
+                  </div>
+                </div>
+              </div>
+
               {/* CONFIGURACIÓN BÁSICA */}
               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200">
                 <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">
@@ -248,7 +379,7 @@ const App: React.FC = () => {
 
               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200">
                 <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Catálogo Bio-Orgánico</h3>
-                <div className="max-h-[350px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                <div className="max-h-[250px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                   {Object.values(OrganicProduct).map(p => {
                     const isSelected = input.selectedProducts.includes(p);
                     return (
@@ -272,9 +403,12 @@ const App: React.FC = () => {
                     <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">
                       {activeTab === 'grass' ? `Proyecto Césped: ${input.grassVariety}` : `Reporte Técnico: ${input.treeType}`}
                     </h2>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">Edición directa de cantidades y costos habilitada</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">Generación de informe técnico profesional</p>
                   </div>
-                  <button onClick={handleExportPDF} className="bg-[#064e3b] text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Generar PDF</button>
+                  <button onClick={handleExportPDF} className="bg-[#064e3b] text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all flex items-center gap-2">
+                    <i className="fas fa-file-pdf"></i>
+                    Exportar Informe Maestro
+                  </button>
                 </div>
 
                 {result && result.products.length > 0 ? (
