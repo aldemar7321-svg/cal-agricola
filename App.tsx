@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { TreeType, SoilType, OrganicProduct, CalculationInput, CalculationResult, AIAdvice, ProductResult, UnitType, GrassMeasureMode, GrassVariety, ClimateType, VisionReport, ApplicationMode, Department, HistoryRecord } from './types.ts';
-import { BASE_RATES, PRODUCT_UNITS, COLOMBIAN_MARKET_PRICES, PRODUCT_CATEGORIES, COMPATIBILITY_RULES, CompatibilityRule, TREE_TYPE_ICONS } from './constants.tsx';
+import { TreeType, SoilType, OrganicProduct, CalculationInput, CalculationResult, AIAdvice, ProductResult, UnitType, GrassMeasureMode, GrassVariety, ClimateType, VisionReport, ApplicationMode, Department, HistoryRecord, ClientData } from './types.ts';
+import { BASE_RATES, PRODUCT_UNITS, COLOMBIAN_MARKET_PRICES, PRODUCT_CATEGORIES, COMPATIBILITY_RULES, CompatibilityRule, TREE_TYPE_ICONS, PRODUCT_DETAILS } from './constants.tsx';
 import { getAgriculturalAdvice, getIndependentVisionDiagnosis } from './services/geminiService.ts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -91,6 +91,14 @@ const App: React.FC = () => {
   const [aiAdvice, setAiAdvice] = useState<AIAdvice | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [clientData, setClientData] = useState<ClientData>({
+    firstName: '',
+    lastName: '',
+    location: '',
+    contact: '',
+    email: ''
+  });
+
   const [input, setInput] = useState<CalculationInput>({
     treeType: TreeType.CITRUS, department: Department.ANTIOQUIA, applicationMode: ApplicationMode.MAINTENANCE,
     soilType: SoilType.FRANCO, soilPercentages: { sand: 40, silt: 40, clay: 20 },
@@ -113,7 +121,7 @@ const App: React.FC = () => {
       id: Math.random().toString(36).substr(2, 9),
       consecutive: history.length + 1,
       date: new Date().toLocaleString(),
-      client: { firstName: 'Usuario', lastName: 'BioGenesis', location: input.department, contact: '', email: '' },
+      client: { ...clientData, location: input.department },
       input: { ...input },
       result: { ...result }
     };
@@ -134,7 +142,6 @@ const App: React.FC = () => {
       const price = input.productPrices[p] || 0;
       const baseRate = BASE_RATES[p] || 0;
       
-      // Dosis por unidad individual
       const amountPerUnit = (input.manualPlantAmounts[p] ?? baseRate) * modifier * (activeTab === 'calculator' ? Math.max(1, input.treeAge || 1) : 1);
       const totalAmount = amountPerUnit * count;
       
@@ -166,17 +173,57 @@ const App: React.FC = () => {
   const exportPDF = () => {
     if (!result) return;
     const doc = new jsPDF();
-    doc.setFontSize(22);
-    doc.setTextColor(6, 78, 59);
-    doc.text('BioGenesis PRO - Reporte de Campo', 14, 20);
+    const margin = 14;
     
+    // Header Principal
+    doc.setFontSize(22);
+    doc.setTextColor(6, 78, 59); // Emerald-900
+    doc.text('BioGenesis PRO - Informe de Campo', margin, 20);
+    
+    // Bloque Información Cliente
     doc.setFontSize(10);
+    doc.setTextColor(51, 65, 85); // Slate-700
+    doc.text('INFORMACIÓN DEL CLIENTE', margin, 32);
+    doc.setDrawColor(226, 232, 240); // Slate-200
+    doc.line(margin, 34, 200, 34);
+    
+    doc.setFontSize(9);
     doc.setTextColor(100);
-    doc.text(`Fecha: ${new Date().toLocaleString()} | Cultivo: ${activeTab === 'grass_pro' ? `Césped ${input.grassVariety}` : input.treeType}`, 14, 28);
+    const clientName = clientData.firstName || clientData.lastName ? `${clientData.firstName} ${clientData.lastName}` : 'No especificado';
+    doc.text(`Cliente: ${clientName}`, margin, 39);
+    doc.text(`Contacto: ${clientData.contact || 'N/A'}`, margin, 44);
+    doc.text(`Email: ${clientData.email || 'N/A'}`, margin, 49);
+    doc.text(`Departamento: ${input.department}`, 120, 39);
+    doc.text(`Municipio/Vereda: ${clientData.location || 'N/A'}`, 120, 44);
+    doc.text(`Fecha Reporte: ${new Date().toLocaleString()}`, 120, 49);
+
+    // Tabla de Perfil del Suelo
+    doc.setFontSize(14);
+    doc.setTextColor(6, 78, 59);
+    doc.text('1. Perfil del Suelo', margin, 65);
+    
+    autoTable(doc, {
+      startY: 70,
+      head: [['Componente', 'Porcentaje (%)']],
+      body: [
+        ['Arena', `${input.soilPercentages?.sand.toFixed(1)}%`],
+        ['Limo', `${input.soilPercentages?.silt.toFixed(1)}%`],
+        ['Arcilla', `${input.soilPercentages?.clay.toFixed(1)}%`],
+        ['Textura Identificada', input.soilType]
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [51, 65, 85] }, 
+      margin: { left: margin }
+    });
+
+    // Tabla de Cálculos y Dosificación
+    const nextY = (doc as any).lastAutoTable.finalY + 15;
+    doc.setFontSize(14);
+    doc.text('2. Dosificación y Costos', margin, nextY);
 
     autoTable(doc, {
-      startY: 35,
-      head: [['Insumo', `Dosis / ${activeTab === 'grass_pro' ? input.grassMode : 'Planta'}`, 'Total', 'Costo']],
+      startY: nextY + 5,
+      head: [['Insumo', `Dosis / ${activeTab === 'grass_pro' ? input.grassMode : 'Planta'}`, 'Total', 'Subtotal']],
       body: result.products.map(p => [
         p.product,
         `${(p.amount / input.numTrees).toFixed(2)} ${p.unit}`,
@@ -185,20 +232,41 @@ const App: React.FC = () => {
       ]),
       foot: [['', '', 'TOTAL INVERSIÓN', `$${result.totalProjectCost.toLocaleString()} COP`]],
       theme: 'grid',
-      headStyles: { fillColor: [6, 78, 59] }
+      headStyles: { fillColor: [6, 78, 59] }, 
+      margin: { left: margin }
     });
 
+    // Recomendaciones IA
     if (aiAdvice) {
       doc.addPage();
-      doc.text('Protocolo BioGenesis IA', 14, 20);
+      doc.setFontSize(22);
+      doc.setTextColor(6, 78, 59);
+      doc.text('BioGenesis IA - Protocolo Especializado', margin, 20);
+      
+      doc.setFontSize(14);
+      doc.text('3. Plan Maestro de Nutrición', margin, 35);
+
       autoTable(doc, {
-        startY: 30,
-        head: [['Plan Nutricional', 'Dosificación IA']],
-        body: [...aiAdvice.radicularPlan, ...aiAdvice.foliarPlan].map(s => [s.item, s.dosage])
+        startY: 40,
+        head: [['Tipo de Aplicación', 'Insumo Sugerido', 'Dosificación IA']],
+        body: [
+          ...aiAdvice.radicularPlan.map(s => ['Radicular', s.item, s.dosage]),
+          ...aiAdvice.foliarPlan.map(s => ['Foliar', s.item, s.dosage])
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [13, 148, 136] } 
       });
+
+      doc.setFontSize(12);
+      doc.setTextColor(30, 41, 59);
+      doc.text('Análisis de Suelo IA:', margin, (doc as any).lastAutoTable.finalY + 10);
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      const splitText = doc.splitTextToSize(aiAdvice.soilAnalysis, 180);
+      doc.text(splitText, margin, (doc as any).lastAutoTable.finalY + 18);
     }
 
-    doc.save(`BioGenesis_Reporte_${input.treeType}.pdf`);
+    doc.save(`BioGenesis_Reporte_${clientData.lastName || 'Export'}_${Date.now()}.pdf`);
   };
 
   const handleSoilPercentChange = (key: 'sand' | 'silt' | 'clay', value: number) => {
@@ -217,7 +285,6 @@ const App: React.FC = () => {
       newP[keys[1]] = (100 - clamped) / 2;
     }
 
-    // Identificación básica de textura
     let texture = SoilType.FRANCO;
     if (newP.clay >= 40) texture = SoilType.ARCILLA;
     else if (newP.sand >= 85) texture = SoilType.ARENA;
@@ -225,6 +292,44 @@ const App: React.FC = () => {
     else if (newP.clay >= 20 && newP.clay < 40 && newP.sand > 45) texture = SoilType.FRANCO_ARENOSO;
 
     setInput(prev => ({ ...prev, soilPercentages: newP, soilType: texture }));
+  };
+
+  const renderProductItem = (p: OrganicProduct) => {
+    const isSelected = input.selectedProducts.includes(p);
+    const details = PRODUCT_DETAILS[p];
+    
+    return (
+      <div key={p} className={`p-4 rounded-2xl border-2 transition-all duration-300 ${isSelected ? 'bg-emerald-50 border-emerald-500 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-80 hover:opacity-100'}`}>
+        <label className="flex items-center gap-3 cursor-pointer group">
+          <input 
+            type="checkbox" 
+            checked={isSelected} 
+            onChange={() => setInput(prev => ({ ...prev, selectedProducts: prev.selectedProducts.includes(p) ? prev.selectedProducts.filter(x => x !== p) : [...prev.selectedProducts, p] }))} 
+            className="accent-emerald-600 h-5 w-5 rounded transition-transform group-active:scale-90" 
+          />
+          <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">{p}</span>
+        </label>
+        
+        {isSelected && details && (
+          <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="bg-white/80 p-3 rounded-xl border border-emerald-100 space-y-2">
+              <div className="space-y-1">
+                <span className="text-[8px] font-black text-emerald-700 uppercase flex items-center gap-1"><i className="fas fa-microscope"></i> Propiedades</span>
+                <p className="text-[10px] text-slate-600 leading-tight font-medium">{details.properties}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[8px] font-black text-blue-700 uppercase flex items-center gap-1"><i className="fas fa-check-circle"></i> Beneficios</span>
+                <p className="text-[10px] text-slate-600 leading-tight font-medium">{details.benefits}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[8px] font-black text-red-600 uppercase flex items-center gap-1"><i className="fas fa-exclamation-triangle"></i> Precauciones</span>
+                <p className="text-[10px] text-slate-600 leading-tight font-medium italic">{details.precautions}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -247,10 +352,41 @@ const App: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
             <aside className="lg:col-span-4 space-y-8 no-print">
               
-              {/* Sección Perfil del Suelo - Limpieza de Sombras en Fuente */}
+              {/* Bloque Datos del Cliente */}
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-200">
+                <h2 className="text-[11px] font-black mb-5 text-slate-900 uppercase flex items-center gap-2 tracking-widest border-b pb-2">
+                  <i className="fas fa-user-tie"></i> Perfil del Productor
+                </h2>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Nombre</label>
+                      <input type="text" value={clientData.firstName} onChange={e => setClientData({...clientData, firstName: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="Juan" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Apellido</label>
+                      <input type="text" value={clientData.lastName} onChange={e => setClientData({...clientData, lastName: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="Pérez" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Celular / Contacto</label>
+                    <input type="text" value={clientData.contact} onChange={e => setClientData({...clientData, contact: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="+57 300 000 0000" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Correo Electrónico</label>
+                    <input type="email" value={clientData.email} onChange={e => setClientData({...clientData, email: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="cliente@correo.com" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Municipio / Vereda</label>
+                    <input type="text" value={clientData.location} onChange={e => setClientData({...clientData, location: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="Ej: Vereda El Salado" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección Perfil del Suelo */}
               <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-200">
                 <h2 className="text-[11px] font-black mb-4 text-emerald-900 uppercase flex items-center gap-2 tracking-widest border-b pb-2">
-                  <i className="fas fa-mountain"></i> Perfil del Suelo
+                  <i className="fas fa-mountain"></i> Análisis de Textura
                 </h2>
                 <SoilTriangleVisual sand={input.soilPercentages!.sand} silt={input.soilPercentages!.silt} clay={input.soilPercentages!.clay} />
                 <div className="space-y-5 mt-4">
@@ -267,114 +403,18 @@ const App: React.FC = () => {
                     </div>
                   ))}
                 </div>
-                <div className="mt-6 p-4 bg-slate-900 rounded-2xl text-white flex items-center gap-3">
-                  <div className="h-10 w-10 bg-white/10 rounded-xl flex items-center justify-center text-emerald-400 text-lg"><i className="fas fa-microscope"></i></div>
-                  <div>
-                    <span className="text-[8px] font-bold uppercase opacity-60 block tracking-widest">Textura Identificada</span>
-                    <span className="text-[11px] font-black uppercase text-white">{input.soilType}</span>
-                  </div>
-                </div>
               </div>
 
-              {/* Configuración Césped (Sólo en pestaña Césped) */}
-              {activeTab === 'grass_pro' && (
-                <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-blue-100 animate-in slide-in-from-left duration-300">
-                  <h2 className="text-[11px] font-black mb-5 text-blue-900 uppercase flex items-center gap-2 tracking-widest border-b pb-2">
-                    <i className="fas fa-seedling"></i> Configuración Césped
-                  </h2>
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Variedad de Grama</label>
-                      <select 
-                        value={input.grassVariety} 
-                        onChange={e => setInput({...input, grassVariety: e.target.value as GrassVariety})}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black outline-none focus:ring-2 focus:ring-blue-500/20"
-                      >
-                        {Object.values(GrassVariety).map(v => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unidad de Medida</label>
-                      <div className="flex bg-slate-100 p-1 rounded-xl">
-                        {Object.values(GrassMeasureMode).map(mode => (
-                          <button
-                            key={mode}
-                            onClick={() => setInput({...input, grassMode: mode})}
-                            className={`flex-1 py-2 rounded-lg text-[10px] font-black transition-all ${input.grassMode === mode ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
-                          >
-                            {mode === GrassMeasureMode.AREA ? 'Área (m2)' : 'Metros Lineales'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cantidad a Tratar ({input.grassMode})</label>
-                      <input 
-                        type="number" 
-                        value={input.numTrees || ''} 
-                        onChange={e => setInput({...input, numTrees: parseFloat(e.target.value) || 0})}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black outline-none focus:ring-2 focus:ring-blue-500/20"
-                        placeholder="Ej: 50"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Configuración Frutales (Sólo en pestaña Frutales) */}
-              {activeTab === 'calculator' && (
-                <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-emerald-100">
-                  <h2 className="text-[11px] font-black mb-5 text-emerald-900 uppercase flex items-center gap-2 tracking-widest border-b pb-2">
-                    <i className="fas fa-tree"></i> Configuración de Árboles
-                  </h2>
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo de Cultivo</label>
-                      <select 
-                        value={input.treeType} 
-                        onChange={e => setInput({...input, treeType: e.target.value as TreeType})}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black outline-none focus:ring-2 focus:ring-emerald-500/20"
-                      >
-                        {Object.values(TreeType).filter(t => t !== TreeType.GRASS).map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Edad (Años)</label>
-                        <input type="number" value={input.treeAge} onChange={e => setInput({...input, treeAge: parseInt(e.target.value) || 1})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">N° de Plantas</label>
-                        <input type="number" value={input.numTrees} onChange={e => setInput({...input, numTrees: parseInt(e.target.value) || 1})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
+              {/* Catálogo BioGenesis */}
               <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-200">
                 <h2 className="text-[11px] font-black mb-5 text-emerald-900 uppercase flex items-center gap-2 tracking-widest border-b pb-2">
-                  <i className="fas fa-vial"></i> Catálogo BioGenesis
+                  <i className="fas fa-vial"></i> Catálogo de Insumos
                 </h2>
-                <div className="max-h-[450px] overflow-y-auto space-y-4 custom-scrollbar pr-2">
-                  <h3 className="text-[9px] font-black text-blue-600 uppercase border-b border-blue-50 pb-1">Biológicos Líquidos</h3>
-                  {PRODUCT_CATEGORIES.LIQUIDS.map(p => (
-                    <div key={p} className={`p-4 rounded-2xl border-2 transition-all ${input.selectedProducts.includes(p) ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-100 opacity-80'}`}>
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" checked={input.selectedProducts.includes(p)} onChange={() => setInput(prev => ({ ...prev, selectedProducts: prev.selectedProducts.includes(p) ? prev.selectedProducts.filter(x => x !== p) : [...prev.selectedProducts, p] }))} className="accent-emerald-600 h-4 w-4 rounded" />
-                        <span className="text-[11px] font-black text-slate-800 uppercase">{p}</span>
-                      </label>
-                    </div>
-                  ))}
-                  <h3 className="text-[9px] font-black text-amber-700 uppercase border-b border-amber-50 pb-1 mt-6">Sólidos & Enmiendas</h3>
-                  {PRODUCT_CATEGORIES.SOLIDS.map(p => (
-                    <div key={p} className={`p-4 rounded-2xl border-2 transition-all ${input.selectedProducts.includes(p) ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-100 opacity-80'}`}>
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" checked={input.selectedProducts.includes(p)} onChange={() => setInput(prev => ({ ...prev, selectedProducts: prev.selectedProducts.includes(p) ? prev.selectedProducts.filter(x => x !== p) : [...prev.selectedProducts, p] }))} className="accent-emerald-600 h-4 w-4 rounded" />
-                        <span className="text-[11px] font-black text-slate-800 uppercase">{p}</span>
-                      </label>
-                    </div>
-                  ))}
+                <div className="max-h-[500px] overflow-y-auto space-y-4 custom-scrollbar pr-2">
+                  <h3 className="text-[9px] font-black text-blue-600 uppercase border-b border-blue-50 pb-1">Biológicos & Líquidos</h3>
+                  {PRODUCT_CATEGORIES.LIQUIDS.map(p => renderProductItem(p))}
+                  <h3 className="text-[9px] font-black text-amber-700 uppercase border-b border-amber-50 pb-1 mt-6">Sólidos & Minerales</h3>
+                  {PRODUCT_CATEGORIES.SOLIDS.map(p => renderProductItem(p))}
                 </div>
               </div>
             </aside>
@@ -391,10 +431,10 @@ const App: React.FC = () => {
                           {input.numTrees} {activeTab === 'grass_pro' ? input.grassMode : 'plantas'}
                         </span>
                         <span className="px-4 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase shadow-sm">
-                          {input.applicationMode}
+                          {input.department}
                         </span>
                         <span className="px-4 py-1.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded-full uppercase shadow-sm">
-                          {input.healthStatus}
+                          Salud: {input.healthStatus}
                         </span>
                      </div>
                    </div>
@@ -413,7 +453,7 @@ const App: React.FC = () => {
                     <div className="overflow-hidden rounded-[2.5rem] border border-slate-200 shadow-sm">
                       <table className="w-full text-left">
                         <thead className="bg-slate-50 text-[11px] font-black uppercase text-slate-500 border-b border-slate-200">
-                          <tr><th className="p-6">Insumo Seleccionado</th><th className="p-6">Dosis / {activeTab === 'grass_pro' ? input.grassMode : 'Planta'}</th><th className="p-6">Cantidad Total</th><th className="p-6">Subtotal</th></tr>
+                          <tr><th className="p-6">Insumo</th><th className="p-6">Dosis / {activeTab === 'grass_pro' ? input.grassMode : 'Planta'}</th><th className="p-6">Cantidad Total</th><th className="p-6">Presupuesto</th></tr>
                         </thead>
                         <tbody className="text-xs font-bold text-slate-700">
                           {result.products.map((p, i) => (
@@ -498,7 +538,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Módulo IA Vision (Igual que antes pero con legibilidad mejorada) */}
+        {/* Tab IA Vision */}
         {activeTab === 'vision' && (
           <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in duration-500">
             <div className="bg-white p-14 rounded-[3.5rem] shadow-2xl text-center border-4 border-emerald-50">
@@ -573,7 +613,6 @@ const App: React.FC = () => {
                            <p className="text-sm font-medium text-emerald-50 leading-relaxed italic">"{visionReport.biologicalRemedy.preparation}"</p>
                         </div>
                      </div>
-                     <i className="fas fa-spa absolute -bottom-10 -right-10 text-[12rem] text-white/5 rotate-12"></i>
                    </div>
                 </div>
               </div>
@@ -582,7 +621,7 @@ const App: React.FC = () => {
         )}
 
         {/* Historial Persistente */}
-        {activeTab === 'history' && (
+        {activeTab === 'history' && (activeTab === 'history' && (
           <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in duration-500">
             <div className="flex justify-between items-center mb-12">
                <h2 className="text-4xl font-black text-[#064e3b] uppercase tracking-tighter flex items-center gap-5">
@@ -600,9 +639,14 @@ const App: React.FC = () => {
                         <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-2">
                           {record.input.treeType === TreeType.GRASS ? `Grama ${record.input.grassVariety}` : record.input.treeType}
                         </h3>
-                        <p className="text-[11px] font-bold text-emerald-600 uppercase bg-emerald-50 px-3 py-1 rounded-full w-fit">
-                          {record.input.numTrees} {record.input.treeType === TreeType.GRASS ? record.input.grassMode : 'plantas'} | {record.input.department}
-                        </p>
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-bold text-emerald-700 uppercase bg-emerald-50 px-3 py-1 rounded-full w-fit">
+                            Cliente: {record.client.firstName} {record.client.lastName}
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                            {record.input.numTrees} {record.input.treeType === TreeType.GRASS ? record.input.grassMode : 'plantas'} | {record.client.location}, {record.input.department}
+                          </p>
+                        </div>
                       </div>
                       <button onClick={() => {
                         const updated = history.filter(h => h.id !== record.id);
@@ -626,7 +670,7 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
-        )}
+        ))}
       </main>
     </div>
   );
