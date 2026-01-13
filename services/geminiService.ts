@@ -28,6 +28,7 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     const isGrass = input.treeType === 'Césped';
     const speciesName = isGrass ? `Grama ${input.grassVariety}` : input.treeType;
     const unitMeasure = isGrass ? input.grassMode : 'plantas';
+    const frequencyInfo = `${input.cycleFrequencyValue} ${input.cycleFrequencyUnit}`;
     
     const textPrompt = `Actúa como un experto en agronomía orgánica de precisión en Colombia.
     
@@ -42,14 +43,18 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     - Clima reportado: ${input.climate}
     - Estado de salud: ${input.healthStatus}
     - Insumos disponibles: ${productList}
+    - FRECUENCIA DE APLICACIÓN PLANIFICADA: Cada ${frequencyInfo}
     
     TAREA:
-    Consulta fuentes técnicas colombianas recientes (ICA, CORPOICA/AGROSAVIA) y genera un protocolo de dosificación EXACTO.
+    Consulta fuentes técnicas colombianas recientes (ICA, AGROSAVIA) y genera un protocolo de dosificación EXACTO.
     
-    REGLA CRÍTICA DE DOSIFICACIÓN:
-    Para cada producto en 'radicularPlan' y 'foliarPlan', el campo 'dosage' DEBE indicar la cantidad para UNA SOLA PLANTA (o m2 si es césped). 
-    Ejemplo: "50g por planta", "10cc por litro/planta". 
-    No des totales generales en el campo dosage, solo dosis por unidad individual.
+    REGLA CRÍTICA DE DOSIFICACIÓN Y FRECUENCIA:
+    Para cada producto en 'radicularPlan' y 'foliarPlan', el campo 'dosage' DEBE indicar la cantidad para UNA SOLA PLANTA (o m2 si es césped) POR APLICACIÓN.
+    DEBES AJUSTAR LA DOSIS según la frecuencia reportada (${frequencyInfo}). 
+    - Si la frecuencia es alta (ej. cada 15 días), la dosis debe ser más diluida o fraccionada.
+    - Si la frecuencia es baja (ej. cada 6 meses), la dosis puede ser de mantenimiento o liberación lenta según el producto.
+    
+    No des totales generales en el campo dosage, solo dosis por unidad individual para esa frecuencia específica.
     
     IMPORTANTE: Responde estrictamente en formato JSON.`;
 
