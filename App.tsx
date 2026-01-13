@@ -218,18 +218,27 @@ const App: React.FC = () => {
 
   const handleSoilPercentChange = (key: 'sand' | 'silt' | 'clay', value: number) => {
     if (!input.soilPercentages) return;
+    const clampedValue = Math.min(100, Math.max(0, value));
     const oldVal = input.soilPercentages[key];
-    const diff = value - oldVal;
+    const diff = clampedValue - oldVal;
     const keys = (['sand', 'silt', 'clay'] as const).filter(k => k !== key);
     const sumOthers = input.soilPercentages[keys[0]] + input.soilPercentages[keys[1]];
-    let newPercentages = { ...input.soilPercentages, [key]: value };
+    let newPercentages = { ...input.soilPercentages, [key]: clampedValue };
+    
     if (sumOthers > 0) {
       newPercentages[keys[0]] = Math.max(0, input.soilPercentages[keys[0]] - (diff * (input.soilPercentages[keys[0]] / sumOthers)));
       newPercentages[keys[1]] = Math.max(0, input.soilPercentages[keys[1]] - (diff * (input.soilPercentages[keys[1]] / sumOthers)));
     } else {
-      newPercentages[keys[0]] = (100 - value) / 2;
-      newPercentages[keys[1]] = (100 - value) / 2;
+      newPercentages[keys[0]] = (100 - clampedValue) / 2;
+      newPercentages[keys[1]] = (100 - clampedValue) / 2;
     }
+
+    // Asegurar que la suma sea exactamente 100 debido a errores de punto flotante
+    const total = newPercentages.sand + newPercentages.silt + newPercentages.clay;
+    if (total !== 100) {
+        newPercentages[keys[1]] += (100 - total);
+    }
+
     const newTexture = calculateSoilTexture(newPercentages.sand, newPercentages.silt, newPercentages.clay);
     setInput(prev => ({ ...prev, soilPercentages: newPercentages, soilType: newTexture }));
   };
@@ -241,7 +250,6 @@ const App: React.FC = () => {
   const renderProductItem = (p: OrganicProduct) => {
     const selected = input.selectedProducts.includes(p);
     const unit = input.selectedUnits[p] || PRODUCT_UNITS[p];
-    const details = PRODUCT_DETAILS[p];
     return (
       <div key={p} className={`p-4 rounded-2xl border-2 transition-all ${selected ? 'bg-emerald-50 border-emerald-500 shadow-md scale-[1.01]' : 'bg-slate-50 border-slate-100 opacity-60 hover:opacity-100'}`}>
         <label className="flex items-center gap-3 cursor-pointer mb-2">
@@ -291,21 +299,41 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <aside className="lg:col-span-4 space-y-6 no-print">
             <div className="bg-white p-6 rounded-[2rem] shadow-xl border-4 border-amber-50 relative overflow-hidden group">
-              <h2 className="text-sm font-black mb-4 text-amber-800 flex items-center gap-2"><i className="fas fa-mountain"></i> Análisis de Granulometría</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-sm font-black text-amber-800 flex items-center gap-2"><i className="fas fa-mountain"></i> Análisis de Granulometría</h2>
+                <div className="flex items-center gap-1 bg-emerald-100 px-2 py-1 rounded-full">
+                    <i className="fas fa-check-circle text-emerald-600 text-[10px]"></i>
+                    <span className="text-[9px] font-black text-emerald-800 uppercase">Balance 100%</span>
+                </div>
+              </div>
+
               <SoilTriangleVisual sand={input.soilPercentages!.sand} silt={input.soilPercentages!.silt} clay={input.soilPercentages!.clay} />
+              
               <div className="space-y-4">
                 {['sand', 'silt', 'clay'].map((k) => (
                   <div key={k} className="space-y-1">
-                    <div className="flex justify-between items-baseline">
+                    <div className="flex justify-between items-center">
                       <label className={`text-[9px] font-black uppercase ${k === 'sand' ? 'text-amber-700' : k === 'silt' ? 'text-emerald-700' : 'text-red-700'}`}>
-                        {k === 'sand' ? 'Arena' : k === 'silt' ? 'Limo' : 'Arcilla'} (%)
+                        {k === 'sand' ? 'Arena' : k === 'silt' ? 'Limo' : 'Arcilla'}
                       </label>
-                      <span className="text-xs font-black text-slate-900">{(input.soilPercentages as any)[k]}%</span>
+                      <div className="relative flex items-center">
+                        <input 
+                            type="number" 
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            value={(input.soilPercentages as any)[k].toFixed(1)} 
+                            onChange={e => handleSoilPercentChange(k as any, parseFloat(e.target.value) || 0)}
+                            className="w-16 p-1 bg-slate-50 border border-slate-200 rounded-lg text-right text-xs font-black text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        />
+                        <span className="ml-1 text-[10px] font-black text-slate-400">%</span>
+                      </div>
                     </div>
-                    <input type="range" min="0" max="100" value={(input.soilPercentages as any)[k]} onChange={e => handleSoilPercentChange(k as any, parseInt(e.target.value))} className={`w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer ${k === 'sand' ? 'accent-amber-600' : k === 'silt' ? 'accent-emerald-600' : 'accent-red-600'}`} />
+                    <input type="range" min="0" max="100" step="0.1" value={(input.soilPercentages as any)[k]} onChange={e => handleSoilPercentChange(k as any, parseFloat(e.target.value))} className={`w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer ${k === 'sand' ? 'accent-amber-600' : k === 'silt' ? 'accent-emerald-600' : 'accent-red-600'}`} />
                   </div>
                 ))}
               </div>
+
               <div className="mt-6 p-4 rounded-2xl bg-slate-800 text-white shadow-lg flex items-center gap-4 border-2 border-white/20">
                 <div className={`h-12 w-12 rounded-xl flex items-center justify-center text-2xl bg-white/10 ${suitability.color}`}><i className={`fas ${suitability.icon}`}></i></div>
                 <div>
@@ -315,7 +343,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* VERIFICADOR DE MEZCLAS (NUEVO COMPONENTE) */}
             <div className="bg-white p-6 rounded-[2rem] shadow-xl border-4 border-emerald-50">
               <h2 className="text-sm font-black mb-4 text-emerald-800 flex items-center gap-2"><i className="fas fa-vial-circle-check"></i> Inteligencia de Mezcla</h2>
               <MixHealthChecker selectedProducts={input.selectedProducts} />
