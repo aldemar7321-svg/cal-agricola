@@ -134,6 +134,8 @@ const App: React.FC = () => {
     let modifier = 1.0;
     if (input.healthStatus === 'regular') modifier *= 1.25;
     if (input.healthStatus === 'deficiente') modifier *= 1.5;
+    
+    // Si es siembra, solemos aplicar una dosis base diferente, pero aquí usamos el modificador de salud y edad.
     const count = Math.max(1, input.numTrees || 1);
     
     const products: ProductResult[] = input.selectedProducts.map(p => {
@@ -141,7 +143,9 @@ const App: React.FC = () => {
       const price = input.productPrices[p] || 0;
       const baseRate = BASE_RATES[p] || 0;
       
-      const amountPerUnit = (input.manualPlantAmounts[p] ?? baseRate) * modifier * (activeTab === 'calculator' ? Math.max(1, input.treeAge || 1) : 1);
+      // La dosis escala con la edad en frutales
+      const ageFactor = activeTab === 'calculator' ? Math.max(1, input.treeAge || 1) : 1;
+      const amountPerUnit = (input.manualPlantAmounts[p] ?? baseRate) * modifier * ageFactor;
       const totalAmount = amountPerUnit * count;
       
       return { 
@@ -210,7 +214,7 @@ const App: React.FC = () => {
     const nextY = (doc as any).lastAutoTable.finalY + 10;
     autoTable(doc, {
       startY: nextY,
-      head: [['Insumo', `Dosis / ${activeTab === 'grass_pro' ? input.grassMode : 'Planta'}`, 'Total', 'Subtotal']],
+      head: [['Insumo', `Dosis / Unidad`, 'Total', 'Subtotal']],
       body: result.products.map(p => [
         p.product,
         `${(p.amount / input.numTrees).toFixed(2)} ${p.unit}`,
@@ -292,7 +296,6 @@ const App: React.FC = () => {
         
         {isSelected && (
           <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-            {/* Panel de Ajustes Rápidos */}
             <div className="grid grid-cols-2 gap-3 bg-white p-3 rounded-xl border border-emerald-100">
                <div className="space-y-1">
                  <label className="text-[8px] font-black text-slate-400 uppercase">Precio / {currentUnit}</label>
@@ -307,7 +310,7 @@ const App: React.FC = () => {
                  </div>
                </div>
                <div className="space-y-1">
-                 <label className="text-[8px] font-black text-slate-400 uppercase">Dosis (x planta)</label>
+                 <label className="text-[8px] font-black text-slate-400 uppercase">Dosis Manual</label>
                  <div className="flex gap-1">
                    <input 
                     type="number" 
@@ -326,7 +329,6 @@ const App: React.FC = () => {
                </div>
             </div>
 
-            {/* Ficha Técnica */}
             {details && (
               <div className="bg-white/80 p-3 rounded-xl border border-emerald-100 space-y-2">
                 <div className="space-y-1">
@@ -336,10 +338,6 @@ const App: React.FC = () => {
                 <div className="space-y-1">
                   <span className="text-[8px] font-black text-blue-700 uppercase flex items-center gap-1"><i className="fas fa-check-circle"></i> Beneficios</span>
                   <p className="text-[10px] text-slate-600 leading-tight font-medium">{details.benefits}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[8px] font-black text-red-600 uppercase flex items-center gap-1"><i className="fas fa-exclamation-triangle"></i> Precauciones</span>
-                  <p className="text-[10px] text-slate-600 leading-tight font-medium italic">{details.precautions}</p>
                 </div>
               </div>
             )}
@@ -357,7 +355,7 @@ const App: React.FC = () => {
           <nav className="flex bg-white/10 p-1.5 rounded-2xl backdrop-blur-2xl border border-white/10">
             {['calculator', 'grass_pro', 'vision', 'history'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-2.5 rounded-xl text-[10px] font-black transition-all ${activeTab === tab ? 'bg-white text-[#064e3b] shadow-xl' : 'text-white hover:bg-white/10'}`}>
-                {tab === 'calculator' ? 'FRUTALES' : tab === 'grass_pro' ? 'CÉSPED' : tab === 'vision' ? 'IA VISION' : 'HISTORIAL'}
+                {tab === 'calculator' ? 'FRUTALES / PLANTAS' : tab === 'grass_pro' ? 'CÉSPED' : tab === 'vision' ? 'IA VISION' : 'HISTORIAL'}
               </button>
             ))}
           </nav>
@@ -382,7 +380,7 @@ const App: React.FC = () => {
                   <input type="text" value={clientData.contact} onChange={e => setClientData({...clientData, contact: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="Celular" />
                   
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Departamento (Ubicación Geográfica)</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Departamento / Ubicación</label>
                     <select 
                       value={input.department} 
                       onChange={e => setInput({...input, department: e.target.value as Department})}
@@ -400,23 +398,80 @@ const App: React.FC = () => {
                 </div>
               </div>
 
+              {/* Configuración Árboles (Específico Pestaña Calculadora) */}
+              {activeTab === 'calculator' && (
+                <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-emerald-100">
+                  <h2 className="text-[11px] font-black mb-5 text-emerald-900 uppercase flex items-center gap-2 tracking-widest border-b pb-2">
+                    <i className="fas fa-tree"></i> Configuración del Cultivo
+                  </h2>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase">Especie / Tipo</label>
+                      <select 
+                        value={input.treeType} 
+                        onChange={e => setInput({...input, treeType: e.target.value as TreeType})}
+                        className="w-full p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-black"
+                      >
+                        {Object.values(TreeType).filter(t => t !== TreeType.GRASS).map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase">Edad (Años)</label>
+                        <input type="number" value={input.treeAge} onChange={e => setInput({...input, treeAge: parseInt(e.target.value) || 1})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black" min="1" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase">N° Plantas</label>
+                        <input type="number" value={input.numTrees} onChange={e => setInput({...input, numTrees: parseInt(e.target.value) || 1})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black" min="1" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase">Estado de Salud</label>
+                      <div className="flex bg-slate-100 p-1 rounded-xl">
+                        {(['bueno', 'regular', 'deficiente'] as const).map(status => (
+                          <button
+                            key={status}
+                            onClick={() => setInput({...input, healthStatus: status})}
+                            className={`flex-1 py-1.5 rounded-lg text-[9px] font-black transition-all uppercase ${input.healthStatus === status ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}
+                          >
+                            {status}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase">Fase de Aplicación</label>
+                      <select 
+                        value={input.applicationMode} 
+                        onChange={e => setInput({...input, applicationMode: e.target.value as ApplicationMode})}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black"
+                      >
+                        {Object.values(ApplicationMode).map(mode => <option key={mode} value={mode}>{mode}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Perfil Suelo */}
               <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-200">
                 <h2 className="text-[11px] font-black mb-4 text-emerald-900 uppercase flex items-center gap-2 tracking-widest border-b pb-2">
-                  <i className="fas fa-mountain"></i> Análisis de Textura
+                  <i className="fas fa-mountain"></i> Análisis de Suelo
                 </h2>
                 <SoilTriangleVisual sand={input.soilPercentages!.sand} silt={input.soilPercentages!.silt} clay={input.soilPercentages!.clay} />
-                <div className="space-y-5 mt-4">
+                <div className="space-y-4">
                   {['sand', 'silt', 'clay'].map(k => (
                     <div key={k} className="space-y-1">
                       <div className="flex justify-between items-center">
-                        <span className="text-[9px] font-black uppercase text-slate-600 tracking-tight">{k === 'sand' ? 'Arena' : k === 'silt' ? 'Limo' : 'Arcilla'}</span>
-                        <div className="flex items-center gap-1">
-                           <input type="number" step="0.1" value={input.soilPercentages![k as keyof typeof input.soilPercentages].toFixed(1)} onChange={e => handleSoilPercentChange(k as any, parseFloat(e.target.value))} className="w-14 p-1 border-b border-slate-200 font-black text-right text-xs outline-none focus:border-emerald-500 bg-transparent" />
-                           <span className="text-[10px] font-bold text-slate-400">%</span>
-                        </div>
+                        <span className="text-[9px] font-black uppercase text-slate-600">{k === 'sand' ? 'Arena' : k === 'silt' ? 'Limo' : 'Arcilla'}</span>
+                        <span className="text-[10px] font-black">{input.soilPercentages![k as 'sand'|'silt'|'clay'].toFixed(1)}%</span>
                       </div>
-                      <input type="range" min="0" max="100" step="0.1" value={input.soilPercentages![k as keyof typeof input.soilPercentages]} onChange={e => handleSoilPercentChange(k as any, parseFloat(e.target.value))} className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer ${k === 'sand' ? 'accent-amber-600' : k === 'silt' ? 'accent-emerald-600' : 'accent-red-600'} bg-slate-100`} />
+                      <input type="range" min="0" max="100" step="0.1" value={input.soilPercentages![k as 'sand'|'silt'|'clay']} onChange={e => handleSoilPercentChange(k as any, parseFloat(e.target.value))} className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-emerald-600 bg-slate-100" />
                     </div>
                   ))}
                 </div>
@@ -427,7 +482,7 @@ const App: React.FC = () => {
                 <h2 className="text-[11px] font-black mb-5 text-emerald-900 uppercase flex items-center gap-2 tracking-widest border-b pb-2">
                   <i className="fas fa-vial"></i> Catálogo de Insumos
                 </h2>
-                <div className="max-h-[600px] overflow-y-auto space-y-4 custom-scrollbar pr-2">
+                <div className="max-h-[500px] overflow-y-auto space-y-4 custom-scrollbar pr-2">
                   <h3 className="text-[9px] font-black text-blue-600 uppercase border-b border-blue-50 pb-1">Biológicos & Líquidos</h3>
                   {PRODUCT_CATEGORIES.LIQUIDS.map(p => renderProductItem(p))}
                   <h3 className="text-[9px] font-black text-amber-700 uppercase border-b border-amber-50 pb-1 mt-6">Sólidos & Minerales</h3>
@@ -439,20 +494,15 @@ const App: React.FC = () => {
             <section className="lg:col-span-8 space-y-8">
               <div className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-emerald-50/50">
                 <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-10 border-b border-slate-100 pb-8">
-                   <div>
-                     <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-3">
-                       {activeTab === 'grass_pro' ? `Grama ${input.grassVariety}` : input.treeType}
-                     </h3>
-                     <div className="flex flex-wrap gap-2">
-                        <span className="px-4 py-1.5 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded-full uppercase shadow-sm">
-                          {input.numTrees} {activeTab === 'grass_pro' ? input.grassMode : 'plantas'}
-                        </span>
-                        <span className="px-4 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase shadow-sm">
-                          {input.department}
-                        </span>
-                        <span className="px-4 py-1.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded-full uppercase shadow-sm">
-                          Salud: {input.healthStatus}
-                        </span>
+                   <div className="flex items-center gap-4">
+                     <div className="h-16 w-16 bg-emerald-100 rounded-3xl flex items-center justify-center text-3xl">
+                       {TREE_TYPE_ICONS[input.treeType]}
+                     </div>
+                     <div>
+                       <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">
+                         {activeTab === 'grass_pro' ? `Grama ${input.grassVariety}` : input.treeType}
+                       </h3>
+                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Calculadora de Precisión BioGenesis</p>
                      </div>
                    </div>
                    <div className="flex gap-3 w-full md:w-auto">
@@ -470,7 +520,7 @@ const App: React.FC = () => {
                     <div className="overflow-hidden rounded-[2.5rem] border border-slate-200 shadow-sm">
                       <table className="w-full text-left">
                         <thead className="bg-slate-50 text-[11px] font-black uppercase text-slate-500 border-b border-slate-200">
-                          <tr><th className="p-6">Insumo</th><th className="p-6">Dosis / Planta</th><th className="p-6">Cantidad Total</th><th className="p-6">Presupuesto</th></tr>
+                          <tr><th className="p-6">Insumo</th><th className="p-6">Dosis / Planta</th><th className="p-6">Total ({input.numTrees})</th><th className="p-6">Subtotal</th></tr>
                         </thead>
                         <tbody className="text-xs font-bold text-slate-700">
                           {result.products.map((p, i) => (
@@ -496,6 +546,41 @@ const App: React.FC = () => {
                         </tfoot>
                       </table>
                     </div>
+
+                    {/* Protocolo IA */}
+                    <div className="bg-white p-8 rounded-[3rem] border-2 border-emerald-100 relative shadow-inner">
+                       <h4 className="text-xl font-black text-[#064e3b] uppercase mb-6 flex items-center gap-3">
+                         <i className="fas fa-robot text-emerald-600"></i> Protocolo IA Especializado
+                       </h4>
+                       {!aiAdvice ? (
+                         <button onClick={generateAIPlan} disabled={loading} className="w-full bg-emerald-50 text-emerald-900 p-8 rounded-[2rem] border-2 border-dashed border-emerald-300 font-black uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center justify-center gap-4 text-sm disabled:opacity-50">
+                           {loading ? <><i className="fas fa-spinner fa-spin"></i> Generando Plan Maestro...</> : <><i className="fas fa-wand-sparkles"></i> Obtener Plan Maestro con IA</>}
+                         </button>
+                       ) : (
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in zoom-in duration-500">
+                           <div className="space-y-6">
+                             <h5 className="text-[11px] font-black text-emerald-900 uppercase flex items-center gap-2 tracking-widest border-b border-emerald-100 pb-2">Plan Radicular</h5>
+                             {aiAdvice.radicularPlan.map((step, idx) => (
+                               <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                 <p className="text-[12px] font-black text-slate-900 uppercase mb-1">{step.item}</p>
+                                 <p className="text-[10px] font-bold text-emerald-700">Dosis: {step.dosage}</p>
+                                 <p className="text-[9px] text-slate-500 mt-2 italic">{step.purpose}</p>
+                               </div>
+                             ))}
+                           </div>
+                           <div className="space-y-6">
+                             <h5 className="text-[11px] font-black text-teal-900 uppercase flex items-center gap-2 tracking-widest border-b border-teal-100 pb-2">Plan Foliar</h5>
+                             {aiAdvice.foliarPlan.map((step, idx) => (
+                               <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                 <p className="text-[12px] font-black text-slate-900 uppercase mb-1">{step.item}</p>
+                                 <p className="text-[10px] font-bold text-teal-700">Dosis: {step.dosage}</p>
+                                 <p className="text-[9px] text-slate-500 mt-2 italic">{step.purpose}</p>
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                       )}
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-24 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
@@ -504,6 +589,7 @@ const App: React.FC = () => {
                   </div>
                 )}
               </div>
+              <MixHealthChecker selectedProducts={input.selectedProducts} />
             </section>
           </div>
         )}
@@ -514,7 +600,7 @@ const App: React.FC = () => {
               <h2 className="text-4xl font-black text-[#064e3b] mb-4 uppercase tracking-tighter">BioGenesis Vision IA</h2>
               <div className="relative group border-4 border-dashed border-slate-200 rounded-[3.5rem] p-14 bg-slate-50 transition-all hover:border-emerald-300">
                 {visionImage ? (
-                  <img src={visionImage} className="aspect-video rounded-[2.5rem] object-cover mx-auto" />
+                  <img src={visionImage} className="aspect-video rounded-[2.5rem] object-cover mx-auto shadow-2xl" />
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center">
                     <i className="fas fa-camera text-5xl text-emerald-500 mb-4"></i>
@@ -530,7 +616,48 @@ const App: React.FC = () => {
                   </label>
                 )}
               </div>
+              {visionImage && (
+                <button 
+                  onClick={async () => {
+                    setLoading(true);
+                    const report = await getIndependentVisionDiagnosis(visionImage, input.treeType);
+                    setVisionReport(report);
+                    setLoading(false);
+                  }}
+                  disabled={loading}
+                  className="mt-8 px-10 py-4 bg-[#064e3b] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all"
+                >
+                  {loading ? 'Analizando...' : 'Iniciar Diagnóstico'}
+                </button>
+              )}
             </div>
+            
+            {visionReport && (
+              <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-teal-100 animate-in slide-in-from-bottom duration-500">
+                <h3 className="text-2xl font-black text-slate-900 uppercase mb-6 border-b pb-4">Resultado del Análisis</h3>
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black text-emerald-700 uppercase tracking-widest">Patología Identificada</h4>
+                    <p className="text-2xl font-black text-slate-900 leading-tight">{visionReport.pestAnalysis.identifiedPest}</p>
+                    <p className="text-sm font-medium text-slate-600 italic">"{visionReport.pestAnalysis.symptoms}"</p>
+                    <div className="inline-block px-4 py-1.5 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase">
+                      Severidad: {visionReport.pestAnalysis.severity}
+                    </div>
+                  </div>
+                  <div className="bg-slate-50 p-6 rounded-3xl space-y-4">
+                    <h4 className="text-xs font-black text-blue-700 uppercase tracking-widest">Tratamiento Sugerido</h4>
+                    <ul className="space-y-2">
+                      {visionReport.biologicalRemedy.ingredients.map((ing, i) => (
+                        <li key={i} className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                          <i className="fas fa-check text-emerald-500"></i> {ing}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[11px] text-slate-500 leading-relaxed border-t pt-4">{visionReport.biologicalRemedy.preparation}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -542,11 +669,17 @@ const App: React.FC = () => {
                 {history.map(record => (
                   <div key={record.id} className="bg-white p-10 rounded-[4rem] shadow-xl border border-slate-200 group transition-all hover:border-emerald-500">
                     <span className="text-[10px] font-black text-slate-400 uppercase block mb-3">{record.date}</span>
-                    <h3 className="text-2xl font-black text-slate-900 uppercase mb-2">{record.input.treeType}</h3>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="h-12 w-12 bg-slate-100 rounded-2xl flex items-center justify-center text-xl">
+                        {TREE_TYPE_ICONS[record.input.treeType]}
+                      </div>
+                      <h3 className="text-2xl font-black text-slate-900 uppercase">{record.input.treeType}</h3>
+                    </div>
                     <p className="text-[11px] font-bold text-emerald-700 uppercase bg-emerald-50 px-3 py-1 rounded-full w-fit mb-8">
                       Cliente: {record.client.firstName} {record.client.lastName}
                     </p>
                     <div className="flex justify-between items-center pt-8 border-t border-slate-50">
+                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Inversión Total</span>
                       <span className="text-3xl font-black text-slate-900 tracking-tighter">${record.result.totalProjectCost.toLocaleString()}</span>
                     </div>
                   </div>
