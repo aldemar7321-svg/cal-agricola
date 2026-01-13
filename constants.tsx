@@ -16,6 +16,33 @@ export const TREE_TYPE_ICONS: Record<TreeType, React.ReactNode> = {
   [TreeType.FOREST]: <i className="fas fa-tree text-emerald-800"></i>,
 };
 
+export const COLOMBIAN_REGIONS = [
+  {
+    name: "Región Andina",
+    departments: [Department.ANTIOQUIA, Department.BOYACA, Department.CALDAS, Department.CUNDINAMARCA, Department.HUILA, Department.NORTE_SANTANDER, Department.QUINDIO, Department.RISARALDA, Department.SANTANDER, Department.TOLIMA, Department.BOGOTA]
+  },
+  {
+    name: "Región Caribe",
+    departments: [Department.ATLANTICO, Department.BOLIVAR, Department.CESAR, Department.CORDOBA, Department.GUAJIRA, Department.MAGDALENA, Department.SUCRE]
+  },
+  {
+    name: "Región Pacífica",
+    departments: [Department.CAUCA, Department.CHOCO, Department.NARINO, Department.VALLE_CAUCA]
+  },
+  {
+    name: "Región Orinoquía",
+    departments: [Department.ARAUCA, Department.CASANARE, Department.META, Department.VICHADA]
+  },
+  {
+    name: "Región Amazonía",
+    departments: [Department.AMAZONAS, Department.CAQUETA, Department.GUAINIA, Department.GUAVIARE, Department.PUTUMAYO, Department.VAUPES]
+  },
+  {
+    name: "Región Insular",
+    departments: [Department.SAN_ANDRES]
+  }
+];
+
 // Matriz de Compatibilidad Técnica
 export interface CompatibilityRule {
   status: 'compatible' | 'caution' | 'incompatible';

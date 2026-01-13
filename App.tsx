@@ -1,13 +1,12 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { TreeType, SoilType, OrganicProduct, CalculationInput, CalculationResult, AIAdvice, ProductResult, UnitType, GrassMeasureMode, GrassVariety, ClimateType, VisionReport, ApplicationMode, Department, HistoryRecord, ClientData } from './types.ts';
-import { BASE_RATES, PRODUCT_UNITS, COLOMBIAN_MARKET_PRICES, PRODUCT_CATEGORIES, COMPATIBILITY_RULES, CompatibilityRule, TREE_TYPE_ICONS, PRODUCT_DETAILS } from './constants.tsx';
+import { BASE_RATES, PRODUCT_UNITS, COLOMBIAN_MARKET_PRICES, PRODUCT_CATEGORIES, COMPATIBILITY_RULES, CompatibilityRule, TREE_TYPE_ICONS, PRODUCT_DETAILS, COLOMBIAN_REGIONS } from './constants.tsx';
 import { getAgriculturalAdvice, getIndependentVisionDiagnosis } from './services/geminiService.ts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 
-// Componente Visual del Triángulo de Texturas (Sin sombras en fuente)
+// Componente Visual del Triángulo de Texturas
 const SoilTriangleVisual: React.FC<{ sand: number, silt: number, clay: number }> = ({ sand, silt, clay }) => {
   const x = (silt + (clay / 2)) * 2; 
   const y = 173.2 - (clay * 1.732);
@@ -175,16 +174,14 @@ const App: React.FC = () => {
     const doc = new jsPDF();
     const margin = 14;
     
-    // Header Principal
     doc.setFontSize(22);
-    doc.setTextColor(6, 78, 59); // Emerald-900
+    doc.setTextColor(6, 78, 59);
     doc.text('BioGenesis PRO - Informe de Campo', margin, 20);
     
-    // Bloque Información Cliente
     doc.setFontSize(10);
-    doc.setTextColor(51, 65, 85); // Slate-700
+    doc.setTextColor(51, 65, 85);
     doc.text('INFORMACIÓN DEL CLIENTE', margin, 32);
-    doc.setDrawColor(226, 232, 240); // Slate-200
+    doc.setDrawColor(226, 232, 240);
     doc.line(margin, 34, 200, 34);
     
     doc.setFontSize(9);
@@ -194,16 +191,11 @@ const App: React.FC = () => {
     doc.text(`Contacto: ${clientData.contact || 'N/A'}`, margin, 44);
     doc.text(`Email: ${clientData.email || 'N/A'}`, margin, 49);
     doc.text(`Departamento: ${input.department}`, 120, 39);
-    doc.text(`Municipio/Vereda: ${clientData.location || 'N/A'}`, 120, 44);
-    doc.text(`Fecha Reporte: ${new Date().toLocaleString()}`, 120, 49);
+    doc.text(`Ubicación: ${clientData.location || 'N/A'}`, 120, 44);
+    doc.text(`Fecha: ${new Date().toLocaleString()}`, 120, 49);
 
-    // Tabla de Perfil del Suelo
-    doc.setFontSize(14);
-    doc.setTextColor(6, 78, 59);
-    doc.text('1. Perfil del Suelo', margin, 65);
-    
     autoTable(doc, {
-      startY: 70,
+      startY: 65,
       head: [['Componente', 'Porcentaje (%)']],
       body: [
         ['Arena', `${input.soilPercentages?.sand.toFixed(1)}%`],
@@ -212,17 +204,12 @@ const App: React.FC = () => {
         ['Textura Identificada', input.soilType]
       ],
       theme: 'striped',
-      headStyles: { fillColor: [51, 65, 85] }, 
-      margin: { left: margin }
+      headStyles: { fillColor: [51, 65, 85] }
     });
 
-    // Tabla de Cálculos y Dosificación
-    const nextY = (doc as any).lastAutoTable.finalY + 15;
-    doc.setFontSize(14);
-    doc.text('2. Dosificación y Costos', margin, nextY);
-
+    const nextY = (doc as any).lastAutoTable.finalY + 10;
     autoTable(doc, {
-      startY: nextY + 5,
+      startY: nextY,
       head: [['Insumo', `Dosis / ${activeTab === 'grass_pro' ? input.grassMode : 'Planta'}`, 'Total', 'Subtotal']],
       body: result.products.map(p => [
         p.product,
@@ -230,41 +217,10 @@ const App: React.FC = () => {
         `${p.amount.toLocaleString()} ${p.unit}`,
         `$${p.totalCost.toLocaleString()}`
       ]),
-      foot: [['', '', 'TOTAL INVERSIÓN', `$${result.totalProjectCost.toLocaleString()} COP`]],
+      foot: [['', '', 'TOTAL PROYECTO', `$${result.totalProjectCost.toLocaleString()} COP`]],
       theme: 'grid',
-      headStyles: { fillColor: [6, 78, 59] }, 
-      margin: { left: margin }
+      headStyles: { fillColor: [6, 78, 59] }
     });
-
-    // Recomendaciones IA
-    if (aiAdvice) {
-      doc.addPage();
-      doc.setFontSize(22);
-      doc.setTextColor(6, 78, 59);
-      doc.text('BioGenesis IA - Protocolo Especializado', margin, 20);
-      
-      doc.setFontSize(14);
-      doc.text('3. Plan Maestro de Nutrición', margin, 35);
-
-      autoTable(doc, {
-        startY: 40,
-        head: [['Tipo de Aplicación', 'Insumo Sugerido', 'Dosificación IA']],
-        body: [
-          ...aiAdvice.radicularPlan.map(s => ['Radicular', s.item, s.dosage]),
-          ...aiAdvice.foliarPlan.map(s => ['Foliar', s.item, s.dosage])
-        ],
-        theme: 'striped',
-        headStyles: { fillColor: [13, 148, 136] } 
-      });
-
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text('Análisis de Suelo IA:', margin, (doc as any).lastAutoTable.finalY + 10);
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      const splitText = doc.splitTextToSize(aiAdvice.soilAnalysis, 180);
-      doc.text(splitText, margin, (doc as any).lastAutoTable.finalY + 18);
-    }
 
     doc.save(`BioGenesis_Reporte_${clientData.lastName || 'Export'}_${Date.now()}.pdf`);
   };
@@ -294,13 +250,37 @@ const App: React.FC = () => {
     setInput(prev => ({ ...prev, soilPercentages: newP, soilType: texture }));
   };
 
+  const updateProductPrice = (p: OrganicProduct, price: number) => {
+    setInput(prev => ({
+      ...prev,
+      productPrices: { ...prev.productPrices, [p]: price }
+    }));
+  };
+
+  const updateProductDose = (p: OrganicProduct, dose: number) => {
+    setInput(prev => ({
+      ...prev,
+      manualPlantAmounts: { ...prev.manualPlantAmounts, [p]: dose }
+    }));
+  };
+
+  const updateProductUnit = (p: OrganicProduct, unit: UnitType) => {
+    setInput(prev => ({
+      ...prev,
+      selectedUnits: { ...prev.selectedUnits, [p]: unit }
+    }));
+  };
+
   const renderProductItem = (p: OrganicProduct) => {
     const isSelected = input.selectedProducts.includes(p);
     const details = PRODUCT_DETAILS[p];
+    const currentPrice = input.productPrices[p] || 0;
+    const currentDose = input.manualPlantAmounts[p] ?? BASE_RATES[p];
+    const currentUnit = input.selectedUnits[p] || PRODUCT_UNITS[p];
     
     return (
-      <div key={p} className={`p-4 rounded-2xl border-2 transition-all duration-300 ${isSelected ? 'bg-emerald-50 border-emerald-500 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-80 hover:opacity-100'}`}>
-        <label className="flex items-center gap-3 cursor-pointer group">
+      <div key={p} className={`p-4 rounded-2xl border-2 transition-all duration-300 ${isSelected ? 'bg-emerald-50 border-emerald-500 shadow-md ring-2 ring-emerald-200 ring-offset-2' : 'bg-slate-50 border-slate-100 opacity-80 hover:opacity-100'}`}>
+        <label className="flex items-center gap-3 cursor-pointer group mb-2">
           <input 
             type="checkbox" 
             checked={isSelected} 
@@ -310,22 +290,59 @@ const App: React.FC = () => {
           <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">{p}</span>
         </label>
         
-        {isSelected && details && (
-          <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-100 space-y-2">
-              <div className="space-y-1">
-                <span className="text-[8px] font-black text-emerald-700 uppercase flex items-center gap-1"><i className="fas fa-microscope"></i> Propiedades</span>
-                <p className="text-[10px] text-slate-600 leading-tight font-medium">{details.properties}</p>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[8px] font-black text-blue-700 uppercase flex items-center gap-1"><i className="fas fa-check-circle"></i> Beneficios</span>
-                <p className="text-[10px] text-slate-600 leading-tight font-medium">{details.benefits}</p>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[8px] font-black text-red-600 uppercase flex items-center gap-1"><i className="fas fa-exclamation-triangle"></i> Precauciones</span>
-                <p className="text-[10px] text-slate-600 leading-tight font-medium italic">{details.precautions}</p>
-              </div>
+        {isSelected && (
+          <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            {/* Panel de Ajustes Rápidos */}
+            <div className="grid grid-cols-2 gap-3 bg-white p-3 rounded-xl border border-emerald-100">
+               <div className="space-y-1">
+                 <label className="text-[8px] font-black text-slate-400 uppercase">Precio / {currentUnit}</label>
+                 <div className="relative">
+                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">$</span>
+                   <input 
+                    type="number" 
+                    value={currentPrice} 
+                    onChange={e => updateProductPrice(p, parseFloat(e.target.value) || 0)}
+                    className="w-full pl-5 p-1.5 bg-slate-50 rounded-lg text-xs font-black border border-slate-100 focus:ring-1 focus:ring-emerald-500 outline-none"
+                   />
+                 </div>
+               </div>
+               <div className="space-y-1">
+                 <label className="text-[8px] font-black text-slate-400 uppercase">Dosis (x planta)</label>
+                 <div className="flex gap-1">
+                   <input 
+                    type="number" 
+                    value={currentDose} 
+                    onChange={e => updateProductDose(p, parseFloat(e.target.value) || 0)}
+                    className="flex-1 p-1.5 bg-slate-50 rounded-lg text-xs font-black border border-slate-100 outline-none"
+                   />
+                   <select 
+                    value={currentUnit} 
+                    onChange={e => updateProductUnit(p, e.target.value as UnitType)}
+                    className="bg-slate-100 rounded-lg text-[9px] font-black p-1 outline-none"
+                   >
+                     {['g','kg','ml','cc','L','galon'].map(u => <option key={u} value={u}>{u}</option>)}
+                   </select>
+                 </div>
+               </div>
             </div>
+
+            {/* Ficha Técnica */}
+            {details && (
+              <div className="bg-white/80 p-3 rounded-xl border border-emerald-100 space-y-2">
+                <div className="space-y-1">
+                  <span className="text-[8px] font-black text-emerald-700 uppercase flex items-center gap-1"><i className="fas fa-microscope"></i> Propiedades</span>
+                  <p className="text-[10px] text-slate-600 leading-tight font-medium">{details.properties}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[8px] font-black text-blue-700 uppercase flex items-center gap-1"><i className="fas fa-check-circle"></i> Beneficios</span>
+                  <p className="text-[10px] text-slate-600 leading-tight font-medium">{details.benefits}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[8px] font-black text-red-600 uppercase flex items-center gap-1"><i className="fas fa-exclamation-triangle"></i> Precauciones</span>
+                  <p className="text-[10px] text-slate-600 leading-tight font-medium italic">{details.precautions}</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -359,31 +376,31 @@ const App: React.FC = () => {
                 </h2>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Nombre</label>
-                      <input type="text" value={clientData.firstName} onChange={e => setClientData({...clientData, firstName: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="Juan" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Apellido</label>
-                      <input type="text" value={clientData.lastName} onChange={e => setClientData({...clientData, lastName: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="Pérez" />
-                    </div>
+                    <input type="text" value={clientData.firstName} onChange={e => setClientData({...clientData, firstName: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="Nombre" />
+                    <input type="text" value={clientData.lastName} onChange={e => setClientData({...clientData, lastName: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="Apellido" />
                   </div>
+                  <input type="text" value={clientData.contact} onChange={e => setClientData({...clientData, contact: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="Celular" />
+                  
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Celular / Contacto</label>
-                    <input type="text" value={clientData.contact} onChange={e => setClientData({...clientData, contact: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="+57 300 000 0000" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Correo Electrónico</label>
-                    <input type="email" value={clientData.email} onChange={e => setClientData({...clientData, email: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="cliente@correo.com" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Municipio / Vereda</label>
-                    <input type="text" value={clientData.location} onChange={e => setClientData({...clientData, location: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold" placeholder="Ej: Vereda El Salado" />
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Departamento (Ubicación Geográfica)</label>
+                    <select 
+                      value={input.department} 
+                      onChange={e => setInput({...input, department: e.target.value as Department})}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      {COLOMBIAN_REGIONS.map(region => (
+                        <optgroup key={region.name} label={region.name}>
+                          {region.departments.map(dept => (
+                            <option key={dept} value={dept}>{dept}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
 
-              {/* Sección Perfil del Suelo */}
+              {/* Perfil Suelo */}
               <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-200">
                 <h2 className="text-[11px] font-black mb-4 text-emerald-900 uppercase flex items-center gap-2 tracking-widest border-b pb-2">
                   <i className="fas fa-mountain"></i> Análisis de Textura
@@ -405,12 +422,12 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Catálogo BioGenesis */}
+              {/* Catálogo */}
               <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-200">
                 <h2 className="text-[11px] font-black mb-5 text-emerald-900 uppercase flex items-center gap-2 tracking-widest border-b pb-2">
                   <i className="fas fa-vial"></i> Catálogo de Insumos
                 </h2>
-                <div className="max-h-[500px] overflow-y-auto space-y-4 custom-scrollbar pr-2">
+                <div className="max-h-[600px] overflow-y-auto space-y-4 custom-scrollbar pr-2">
                   <h3 className="text-[9px] font-black text-blue-600 uppercase border-b border-blue-50 pb-1">Biológicos & Líquidos</h3>
                   {PRODUCT_CATEGORIES.LIQUIDS.map(p => renderProductItem(p))}
                   <h3 className="text-[9px] font-black text-amber-700 uppercase border-b border-amber-50 pb-1 mt-6">Sólidos & Minerales</h3>
@@ -453,7 +470,7 @@ const App: React.FC = () => {
                     <div className="overflow-hidden rounded-[2.5rem] border border-slate-200 shadow-sm">
                       <table className="w-full text-left">
                         <thead className="bg-slate-50 text-[11px] font-black uppercase text-slate-500 border-b border-slate-200">
-                          <tr><th className="p-6">Insumo</th><th className="p-6">Dosis / {activeTab === 'grass_pro' ? input.grassMode : 'Planta'}</th><th className="p-6">Cantidad Total</th><th className="p-6">Presupuesto</th></tr>
+                          <tr><th className="p-6">Insumo</th><th className="p-6">Dosis / Planta</th><th className="p-6">Cantidad Total</th><th className="p-6">Presupuesto</th></tr>
                         </thead>
                         <tbody className="text-xs font-bold text-slate-700">
                           {result.products.map((p, i) => (
@@ -471,7 +488,7 @@ const App: React.FC = () => {
                         </tbody>
                         <tfoot className="bg-[#064e3b] text-white">
                           <tr>
-                            <td colSpan={3} className="p-8 font-black uppercase text-[12px] tracking-widest text-emerald-200">Presupuesto de Proyecto</td>
+                            <td colSpan={3} className="p-8 font-black uppercase text-[12px] tracking-widest text-emerald-200">Inversión Estimada Proyecto</td>
                             <td className="p-8 font-black text-3xl text-emerald-400 tracking-tighter">
                               ${result.totalProjectCost.toLocaleString()} <span className="text-[10px] opacity-60 font-medium">COP</span>
                             </td>
@@ -479,84 +496,29 @@ const App: React.FC = () => {
                         </tfoot>
                       </table>
                     </div>
-
-                    <div className="bg-white p-8 rounded-[3rem] border-2 border-emerald-100 relative shadow-inner">
-                       <h4 className="text-xl font-black text-[#064e3b] uppercase mb-6 flex items-center gap-3">
-                         <i className="fas fa-robot text-emerald-600"></i> Protocolo BioGenesis IA
-                       </h4>
-                       {!aiAdvice ? (
-                         <button onClick={generateAIPlan} disabled={loading} className="w-full bg-emerald-50 text-emerald-900 p-8 rounded-[2rem] border-2 border-dashed border-emerald-300 font-black uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center justify-center gap-4 text-sm disabled:opacity-50">
-                           {loading ? <><i className="fas fa-spinner fa-spin"></i> Generando Plan Maestro...</> : <><i className="fas fa-wand-sparkles"></i> Obtener Dosificación Especializada por IA</>}
-                         </button>
-                       ) : (
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in zoom-in duration-500">
-                           <div className="space-y-6">
-                             <div className="flex items-center gap-3 bg-emerald-900 text-white px-5 py-2.5 rounded-2xl w-fit shadow-lg">
-                                <i className="fas fa-vial"></i>
-                                <span className="text-[11px] font-black uppercase tracking-wider">Plan Radicular</span>
-                             </div>
-                             {aiAdvice.radicularPlan.map((step, idx) => (
-                               <div key={idx} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 hover:shadow-md transition-shadow">
-                                 <p className="text-[12px] font-black text-slate-900 uppercase mb-2 border-b border-emerald-100 pb-1">{step.item}</p>
-                                 <div className="flex justify-between items-center">
-                                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">Dosis: {step.dosage}</span>
-                                    <span className="text-[9px] font-black text-slate-400 italic">IA Agro Precision</span>
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
-                           <div className="space-y-6">
-                             <div className="flex items-center gap-3 bg-teal-800 text-white px-5 py-2.5 rounded-2xl w-fit shadow-lg">
-                                <i className="fas fa-leaf"></i>
-                                <span className="text-[11px] font-black uppercase tracking-wider">Plan Foliar</span>
-                             </div>
-                             {aiAdvice.foliarPlan.map((step, idx) => (
-                               <div key={idx} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 hover:shadow-md transition-shadow">
-                                 <p className="text-[12px] font-black text-slate-900 uppercase mb-2 border-b border-teal-100 pb-1">{step.item}</p>
-                                 <div className="flex justify-between items-center">
-                                    <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full border border-teal-200">Dosis: {step.dosage}</span>
-                                    <span className="text-[9px] font-black text-slate-400 italic">IA Agro Precision</span>
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
-                         </div>
-                       )}
-                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-24 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
-                    <div className="h-24 w-24 bg-white rounded-full flex items-center justify-center text-4xl text-slate-200 mx-auto mb-8 shadow-inner border-2 border-slate-100">
-                      <i className="fas fa-calculator"></i>
-                    </div>
+                    <i className="fas fa-calculator text-4xl text-slate-200 mb-8 mx-auto"></i>
                     <p className="text-slate-500 font-black uppercase text-sm tracking-widest">Inicie seleccionando insumos de la izquierda</p>
                   </div>
                 )}
               </div>
-              <MixHealthChecker selectedProducts={input.selectedProducts} />
             </section>
           </div>
         )}
 
-        {/* Tab IA Vision */}
         {activeTab === 'vision' && (
           <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in duration-500">
             <div className="bg-white p-14 rounded-[3.5rem] shadow-2xl text-center border-4 border-emerald-50">
               <h2 className="text-4xl font-black text-[#064e3b] mb-4 uppercase tracking-tighter">BioGenesis Vision IA</h2>
-              <p className="text-slate-500 font-medium mb-12 max-w-lg mx-auto leading-relaxed">Escanee muestras de hojas o frutos para detectar anomalías, plagas o deficiencias nutricionales de forma instantánea.</p>
-              
-              <div className="relative group border-4 border-dashed border-slate-200 rounded-[3.5rem] p-14 bg-slate-50 transition-all hover:border-emerald-300 hover:bg-emerald-50/30">
+              <div className="relative group border-4 border-dashed border-slate-200 rounded-[3.5rem] p-14 bg-slate-50 transition-all hover:border-emerald-300">
                 {visionImage ? (
-                  <div className="relative aspect-video rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white">
-                    <img src={visionImage} className="w-full h-full object-cover" />
-                    <button onClick={() => setVisionImage(null)} className="absolute top-6 right-6 bg-red-600 text-white h-12 w-12 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center"><i className="fas fa-times text-xl"></i></button>
-                  </div>
+                  <img src={visionImage} className="aspect-video rounded-[2.5rem] object-cover mx-auto" />
                 ) : (
-                  <label className="cursor-pointer flex flex-col items-center py-12">
-                    <div className="h-32 w-32 bg-white rounded-full flex items-center justify-center text-5xl text-emerald-500 shadow-2xl mb-8 group-hover:scale-110 transition-all border-4 border-emerald-50">
-                      <i className="fas fa-camera-retro"></i>
-                    </div>
-                    <span className="text-[12px] font-black uppercase text-slate-500 tracking-[0.4em]">Capturar muestra de campo</span>
+                  <label className="cursor-pointer flex flex-col items-center">
+                    <i className="fas fa-camera text-5xl text-emerald-500 mb-4"></i>
+                    <span className="text-xs font-black uppercase text-slate-500">Subir foto de muestra</span>
                     <input type="file" accept="image/*" onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
@@ -568,109 +530,33 @@ const App: React.FC = () => {
                   </label>
                 )}
               </div>
-
-              {visionImage && (
-                <button onClick={async () => {
-                   setLoading(true);
-                   const report = await getIndependentVisionDiagnosis(visionImage, input.treeType);
-                   setVisionReport(report);
-                   setLoading(false);
-                }} disabled={loading} className="mt-12 w-full py-8 bg-[#064e3b] text-white rounded-[2.5rem] font-black uppercase tracking-widest shadow-2xl hover:bg-black disabled:opacity-50 flex items-center justify-center gap-5 text-base transition-all">
-                  {loading ? <><i className="fas fa-spinner fa-spin"></i> Ejecutando Diagnóstico Biológico...</> : <><i className="fas fa-microchip"></i> Ejecutar Escaneo IA Vision</>}
-                </button>
-              )}
             </div>
-
-            {visionReport && (
-              <div className="bg-white p-14 rounded-[4rem] shadow-2xl border-4 border-teal-50 space-y-12 animate-in slide-in-from-bottom duration-700">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-10">
-                  <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Informe de Patología</h3>
-                  <span className={`px-8 py-3 rounded-full text-[11px] font-black uppercase text-white shadow-xl ${visionReport.pestAnalysis.severity === 'Crítica' ? 'bg-red-600 animate-pulse' : 'bg-amber-500'}`}>Severidad: {visionReport.pestAnalysis.severity}</span>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                   <div className="p-10 bg-slate-50 rounded-[3rem] border border-slate-100 relative shadow-sm">
-                     <h4 className="text-[12px] font-black text-emerald-800 uppercase mb-8 flex items-center gap-3 tracking-[0.2em]"><i className="fas fa-bug text-emerald-600"></i> Identificación</h4>
-                     <p className="text-3xl font-black text-slate-900 mb-2 leading-none uppercase tracking-tight">{visionReport.pestAnalysis.identifiedPest}</p>
-                     <p className="text-xs font-bold text-slate-500 italic mb-8 border-b border-emerald-100 pb-3">{visionReport.pestAnalysis.scientificName}</p>
-                     <div className="space-y-6">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Evidencia Sintomática</p>
-                        <p className="text-sm font-medium text-slate-700 leading-relaxed bg-white p-6 rounded-3xl border border-slate-200 shadow-inner">{visionReport.pestAnalysis.symptoms}</p>
-                     </div>
-                   </div>
-                   <div className="p-10 bg-emerald-900 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
-                     <h4 className="text-[12px] font-black text-emerald-300 uppercase mb-8 flex items-center gap-3 tracking-[0.2em]"><i className="fas fa-shield-virus text-emerald-400"></i> Control Orgánico</h4>
-                     <div className="space-y-8 relative z-10">
-                        <div className="grid grid-cols-1 gap-3">
-                           {visionReport.biologicalRemedy.ingredients.map((ing, i) => (
-                             <div key={i} className="flex items-center gap-4 bg-white/10 p-4 rounded-2xl border border-white/10 backdrop-blur-sm">
-                               <i className="fas fa-check-double text-emerald-400 text-sm"></i>
-                               <span className="text-xs font-black uppercase tracking-wide">{ing}</span>
-                             </div>
-                           ))}
-                        </div>
-                        <div className="space-y-4 pt-8 border-t border-white/10">
-                           <p className="text-[10px] font-black text-emerald-300 uppercase tracking-[0.3em]">Preparación y Aplicación</p>
-                           <p className="text-sm font-medium text-emerald-50 leading-relaxed italic">"{visionReport.biologicalRemedy.preparation}"</p>
-                        </div>
-                     </div>
-                   </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
-        {/* Historial Persistente */}
-        {activeTab === 'history' && (activeTab === 'history' && (
+        {activeTab === 'history' && (
           <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center mb-12">
-               <h2 className="text-4xl font-black text-[#064e3b] uppercase tracking-tighter flex items-center gap-5">
-                 <i className="fas fa-layer-group text-emerald-600"></i> Historial de Proyectos
-               </h2>
-               <span className="bg-emerald-900 text-white px-6 py-2.5 rounded-2xl text-[12px] font-black uppercase shadow-lg border border-emerald-700">{history.length} Entradas</span>
-            </div>
+            <h2 className="text-4xl font-black text-[#064e3b] uppercase tracking-tighter">Historial de Proyectos</h2>
             {history.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 {history.map(record => (
-                  <div key={record.id} className="bg-white p-10 rounded-[4rem] shadow-xl border border-slate-200 relative group transition-all hover:border-emerald-500 hover:shadow-2xl">
-                    <div className="flex justify-between items-start mb-8">
-                      <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 block">{record.date}</span>
-                        <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-2">
-                          {record.input.treeType === TreeType.GRASS ? `Grama ${record.input.grassVariety}` : record.input.treeType}
-                        </h3>
-                        <div className="space-y-1">
-                          <p className="text-[11px] font-bold text-emerald-700 uppercase bg-emerald-50 px-3 py-1 rounded-full w-fit">
-                            Cliente: {record.client.firstName} {record.client.lastName}
-                          </p>
-                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                            {record.input.numTrees} {record.input.treeType === TreeType.GRASS ? record.input.grassMode : 'plantas'} | {record.client.location}, {record.input.department}
-                          </p>
-                        </div>
-                      </div>
-                      <button onClick={() => {
-                        const updated = history.filter(h => h.id !== record.id);
-                        setHistory(updated);
-                        localStorage.setItem('agro_history_v4', JSON.stringify(updated));
-                      }} className="h-12 w-12 bg-red-50 text-red-400 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm flex items-center justify-center"><i className="fas fa-trash-alt text-lg"></i></button>
-                    </div>
+                  <div key={record.id} className="bg-white p-10 rounded-[4rem] shadow-xl border border-slate-200 group transition-all hover:border-emerald-500">
+                    <span className="text-[10px] font-black text-slate-400 uppercase block mb-3">{record.date}</span>
+                    <h3 className="text-2xl font-black text-slate-900 uppercase mb-2">{record.input.treeType}</h3>
+                    <p className="text-[11px] font-bold text-emerald-700 uppercase bg-emerald-50 px-3 py-1 rounded-full w-fit mb-8">
+                      Cliente: {record.client.firstName} {record.client.lastName}
+                    </p>
                     <div className="flex justify-between items-center pt-8 border-t border-slate-50">
-                      <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Presupuesto Total</span>
                       <span className="text-3xl font-black text-slate-900 tracking-tighter">${record.result.totalProjectCost.toLocaleString()}</span>
                     </div>
-                    <div className="absolute top-0 right-0 h-2 w-0 bg-emerald-500 group-hover:w-full transition-all rounded-t-full"></div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-48 bg-white rounded-[4rem] shadow-inner border-4 border-dashed border-slate-200">
-                <i className="fas fa-folder-open text-8xl text-slate-100 mb-10"></i>
-                <h3 className="text-2xl font-black text-slate-400 uppercase tracking-[0.3em]">Bitácora Vacía</h3>
-                <p className="text-sm font-bold text-slate-300 mt-4">Los cálculos que guarde se almacenarán localmente en su dispositivo.</p>
-              </div>
+              <div className="text-center py-48 bg-white rounded-[4rem] border-4 border-dashed border-slate-200 text-slate-300 font-black uppercase">Bitácora Vacía</div>
             )}
           </div>
-        ))}
+        )}
       </main>
     </div>
   );

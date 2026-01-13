@@ -116,7 +116,7 @@ export enum OrganicProduct {
   BIO_FLOS = 'Bio Flos - EcoGenesis'
 }
 
-export type UnitType = 'g' | 'kg' | 'cc' | 'ml' | 'L';
+export type UnitType = 'g' | 'kg' | 'cc' | 'ml' | 'L' | 'galon';
 export type FrequencyUnit = 'días' | 'meses';
 
 export interface GroundingSource {
