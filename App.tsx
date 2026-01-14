@@ -144,6 +144,7 @@ const App: React.FC = () => {
 
   const additionalValue = (result?.totalProjectCost || 0) * (additionalPercent / 100);
   const grandTotal = (result?.totalProjectCost || 0) + additionalValue;
+  const grandTotalPerPlant = grandTotal / (input.numTrees || 1);
 
   const saveReportToHistory = () => {
     if (!result) return;
@@ -168,6 +169,7 @@ const App: React.FC = () => {
                  `*Cliente:* ${clientData.firstName} ${clientData.lastName}%0A` +
                  `*Ubicación:* ${clientData.location}%0A` +
                  `*Proyecto:* ${activeTab === 'grass' ? 'Césped ' + input.grassVariety : input.treeType}%0A` +
+                 `*Inversión por Planta:* $${Math.round(grandTotalPerPlant).toLocaleString()} COP%0A` +
                  `*Total Inversión:* $${Math.round(grandTotal).toLocaleString()} COP%0A%0A` +
                  `Consulte su reporte completo en PDF adjunto.`;
     window.open(`https://wa.me/?text=${text}`, '_blank');
@@ -178,6 +180,7 @@ const App: React.FC = () => {
     const doc = new jsPDF();
     const primaryColor = [6, 78, 59];
     const secondaryColor = [16, 185, 129];
+    const numTrees = input.numTrees || 1;
 
     const drawHeader = (title: string) => {
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -228,23 +231,26 @@ const App: React.FC = () => {
       doc.text('3. DETALLE DE INSUMOS Y COSTOS', 14, (doc as any).lastAutoTable.finalY + 15);
       autoTable(doc, {
         startY: (doc as any).lastAutoTable.finalY + 20,
-        head: [['Insumo', 'Unidad', 'Cant.', 'V. Unitario', 'Subtotal (COP)']],
+        head: [['Insumo', 'Unidad', 'Dosis/Plant', 'Cant. Tot', 'V. Unit', 'Cost/Plant', 'Subtotal (COP)']],
         body: result.products.map(p => [
           p.product, 
           p.unit, 
+          (p.amount / numTrees).toFixed(2),
           p.amount.toLocaleString(),
           `$${p.costPerUnit.toLocaleString()}`,
+          `$${Math.round(p.totalCost / numTrees).toLocaleString()}`,
           `$${p.totalCost.toLocaleString()}`
         ]),
         foot: [
-          ['', '', '', 'SUBTOTAL PRODUCTOS', `$${result.totalProjectCost.toLocaleString()}`],
-          ['', '', '', `GESTIÓN / ADM. (${additionalPercent}%)`, `$${additionalValue.toLocaleString()}`],
-          ['', '', '', 'TOTAL INVERSIÓN FINAL', `$${grandTotal.toLocaleString()}`]
+          ['', '', '', '', '', 'SUBTOTAL PRODUCTOS', `$${result.totalProjectCost.toLocaleString()}`],
+          ['', '', '', '', '', `GESTIÓN (${additionalPercent}%)`, `$${additionalValue.toLocaleString()}`],
+          ['', '', '', '', '', 'COSTO TOTAL POR PLANTA', `$${Math.round(grandTotalPerPlant).toLocaleString()}`],
+          ['', '', '', '', '', 'TOTAL INVERSIÓN', `$${grandTotal.toLocaleString()}`]
         ],
         theme: 'grid',
-        headStyles: { fillColor: primaryColor },
-        footStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold' },
-        bodyStyles: { textColor: [0, 0, 0] }
+        headStyles: { fillColor: primaryColor, fontSize: 8 },
+        footStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 8 },
+        bodyStyles: { textColor: [0, 0, 0], fontSize: 8 }
       });
     }
 
@@ -360,7 +366,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* PERFIL ANALÍTICO DEL SUELO */}
               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200">
                 <button 
                   onClick={() => setShowSoilProfile(!showSoilProfile)} 
@@ -436,34 +441,55 @@ const App: React.FC = () => {
 
                 {result && result.products.length > 0 ? (
                   <div className="space-y-8 flex-1">
-                    <div className="overflow-hidden rounded-[2rem] border">
-                      <table className="w-full text-left text-[10px] text-black border-collapse">
+                    {/* DASHBOARD DE RESUMEN POR PLANTA */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
+                      <div className="bg-emerald-600 p-6 rounded-[2rem] shadow-lg text-white relative overflow-hidden group">
+                        <i className="fas fa-dollar-sign absolute -right-4 -bottom-4 text-8xl opacity-10 group-hover:scale-110 transition-transform"></i>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-80">Precio Nutrición por Planta</p>
+                        <h4 className="text-4xl font-black tracking-tighter">${Math.round(grandTotalPerPlant).toLocaleString()} <span className="text-xs uppercase opacity-70">COP</span></h4>
+                        <p className="text-[9px] mt-2 font-bold opacity-60">* Incluye insumos y {additionalPercent}% de gestión</p>
+                      </div>
+                      <div className="bg-slate-800 p-6 rounded-[2rem] shadow-lg text-white relative overflow-hidden group">
+                        <i className="fas fa-chart-line absolute -right-4 -bottom-4 text-8xl opacity-10 group-hover:scale-110 transition-transform"></i>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-80">Inversión Total del Proyecto</p>
+                        <h4 className="text-4xl font-black tracking-tighter">${Math.round(grandTotal).toLocaleString()} <span className="text-xs uppercase opacity-70">COP</span></h4>
+                        <p className="text-[9px] mt-2 font-bold opacity-60">* Para {input.numTrees} unidades registradas</p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-[2rem] border overflow-x-auto">
+                      <table className="w-full text-left text-[10px] text-black border-collapse min-w-[700px]">
                         <thead className="bg-slate-100 font-black uppercase text-slate-600">
                           <tr>
-                            <th className="p-4">Insumo</th>
-                            <th className="p-4 text-center">Unidad <i className="fas fa-edit text-[8px] opacity-30"></i></th>
-                            <th className="p-4 text-center">Cant. <i className="fas fa-edit text-[8px] opacity-30"></i></th>
-                            <th className="p-4 text-center">V. Unitario <i className="fas fa-edit text-[8px] opacity-30"></i></th>
-                            <th className="p-4 text-right">Subtotal</th>
+                            <th className="p-3">Insumo</th>
+                            <th className="p-3 text-center">Unidad</th>
+                            <th className="p-3 text-center">Dosis/Planta</th>
+                            <th className="p-3 text-center">Cant. Total</th>
+                            <th className="p-3 text-center">V. Unit</th>
+                            <th className="p-3 text-center">Costo/Planta</th>
+                            <th className="p-3 text-right">Subtotal</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white">
                           {result.products.map((p, i) => (
                             <tr key={i} className="border-t hover:bg-slate-50 transition-colors">
-                              <td className="p-4 uppercase font-bold text-black">{p.product}</td>
-                              <td className="p-4 text-center">
+                              <td className="p-3 uppercase font-bold text-black truncate max-w-[150px]">{p.product}</td>
+                              <td className="p-3 text-center">
                                 <select 
                                   value={input.manualUnits[p.product] ?? p.unit}
                                   onChange={(e) => setInput(prev => ({
                                     ...prev,
                                     manualUnits: { ...prev.manualUnits, [p.product]: e.target.value as UnitType }
                                   }))}
-                                  className="w-16 p-2 border border-slate-100 rounded-lg text-center text-black font-semibold bg-white outline-none shadow-none appearance-none"
+                                  className="w-14 p-1 border border-slate-100 rounded text-center text-black font-semibold bg-white outline-none appearance-none"
                                 >
                                   {['gr', 'kg', 'ml', 'cc', 'lt', 'gl'].map(u => <option key={u} value={u}>{u}</option>)}
                                 </select>
                               </td>
-                              <td className="p-4 text-center">
+                              <td className="p-3 text-center text-slate-500 font-bold">
+                                {(p.amount / (input.numTrees || 1)).toFixed(2)}
+                              </td>
+                              <td className="p-3 text-center">
                                 <input 
                                   type="number" 
                                   value={input.manualTotalAmounts[p.product] ?? p.amount}
@@ -471,10 +497,10 @@ const App: React.FC = () => {
                                     ...prev,
                                     manualTotalAmounts: { ...prev.manualTotalAmounts, [p.product]: parseFloat(e.target.value) || 0 }
                                   }))}
-                                  className="w-20 p-2 border border-slate-100 rounded-lg text-center text-black font-semibold bg-white outline-none shadow-none appearance-none"
+                                  className="w-16 p-1 border border-slate-100 rounded text-center text-black font-semibold bg-white outline-none shadow-none"
                                 />
                               </td>
-                              <td className="p-4 text-center">
+                              <td className="p-3 text-center">
                                 <input 
                                   type="number" 
                                   value={input.manualUnitPrices[p.product] ?? p.costPerUnit}
@@ -482,25 +508,32 @@ const App: React.FC = () => {
                                     ...prev,
                                     manualUnitPrices: { ...prev.manualUnitPrices, [p.product]: parseFloat(e.target.value) || 0 }
                                   }))}
-                                  className="w-24 p-2 border border-slate-100 rounded-lg text-center text-black font-semibold bg-white outline-none shadow-none appearance-none"
+                                  className="w-20 p-1 border border-slate-100 rounded text-center text-black font-semibold bg-white outline-none shadow-none"
                                 />
                               </td>
-                              <td className="p-4 text-right text-emerald-800 font-black">${p.totalCost.toLocaleString()}</td>
+                              <td className="p-3 text-center text-emerald-600 font-bold">
+                                ${Math.round(p.totalCost / (input.numTrees || 1)).toLocaleString()}
+                              </td>
+                              <td className="p-3 text-right text-emerald-800 font-black">${p.totalCost.toLocaleString()}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot className="bg-slate-50 border-t-2">
                           <tr className="bg-slate-100 text-slate-800 font-black">
-                            <td colSpan={4} className="p-4 text-right uppercase tracking-wider text-[9px]">Subtotal Productos</td>
-                            <td className="p-4 text-right text-lg">${result.totalProjectCost.toLocaleString()}</td>
+                            <td colSpan={6} className="p-3 text-right uppercase tracking-wider text-[8px]">Subtotal Productos</td>
+                            <td className="p-3 text-right text-base">${result.totalProjectCost.toLocaleString()}</td>
                           </tr>
                           <tr className="bg-slate-200 text-emerald-900 font-black">
-                            <td colSpan={4} className="p-4 text-right uppercase tracking-wider text-[9px]">Gestión / Adm. ({additionalPercent}%)</td>
-                            <td className="p-4 text-right text-lg">${Math.round(additionalValue).toLocaleString()}</td>
+                            <td colSpan={6} className="p-3 text-right uppercase tracking-wider text-[8px]">Gestión / Adm. ({additionalPercent}%)</td>
+                            <td className="p-3 text-right text-base">${Math.round(additionalValue).toLocaleString()}</td>
+                          </tr>
+                          <tr className="bg-slate-100 text-slate-900 font-black border-y border-slate-300">
+                            <td colSpan={6} className="p-3 text-right uppercase tracking-wider text-[8px]">Valor Unitario de Nutrición (Final)</td>
+                            <td className="p-3 text-right text-lg text-emerald-700">${Math.round(grandTotalPerPlant).toLocaleString()}</td>
                           </tr>
                           <tr className="bg-[#064e3b] text-white font-black">
-                            <td colSpan={4} className="p-6 text-right uppercase tracking-wider">Gran Valor de Inversión Final</td>
-                            <td className="p-6 text-right text-2xl text-emerald-400 tracking-tighter">${Math.round(grandTotal).toLocaleString()}</td>
+                            <td colSpan={6} className="p-4 text-right uppercase tracking-wider text-[9px]">Gran Valor de Inversión Final</td>
+                            <td className="p-4 text-right text-xl text-emerald-400 tracking-tighter">${Math.round(grandTotal).toLocaleString()}</td>
                           </tr>
                         </tfoot>
                       </table>
