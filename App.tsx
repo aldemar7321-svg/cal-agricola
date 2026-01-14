@@ -88,6 +88,7 @@ const App: React.FC = () => {
   const calculateProductRow = useCallback((p: OrganicProduct) => {
     const quantityBase = input.numTrees || 1;
     let totalAmount: number;
+    
     if (input.manualTotalAmounts[p] !== undefined) {
       totalAmount = input.manualTotalAmounts[p] as number;
     } else {
@@ -223,17 +224,16 @@ const App: React.FC = () => {
         `$${p.totalCost.toLocaleString()}`
       ]),
       foot: [
-        ['', '', '', 'SUBTOTAL', `$${result.totalProjectCost.toLocaleString()}`],
-        ['', '', '', `COSTOS DE GESTIÓN (${additionalPercent}%)`, `$${additionalValue.toLocaleString()}`],
-        ['', '', '', 'TOTAL INVERSIÓN', `$${grandTotal.toLocaleString()}`]
+        ['', '', '', 'SUBTOTAL PRODUCTOS', `$${result.totalProjectCost.toLocaleString()}`],
+        ['', '', '', `GESTIÓN / ADM. (${additionalPercent}%)`, `$${additionalValue.toLocaleString()}`],
+        ['', '', '', 'TOTAL INVERSIÓN FINAL', `$${grandTotal.toLocaleString()}`]
       ],
       theme: 'grid',
       headStyles: { fillColor: primaryColor },
       footStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold' },
-      bodyStyles: { textColor: [0, 0, 0] } // FORZAR TEXTO NEGRO EN PDF
+      bodyStyles: { textColor: [0, 0, 0] }
     });
 
-    // PLAN MAESTRO IA (Página 2)
     if (aiAdvice) {
       doc.addPage();
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -264,27 +264,25 @@ const App: React.FC = () => {
         bodyStyles: { textColor: [0, 0, 0] }
       });
 
-      // FUENTES TÉCNICAS EN NEGRO ABSOLUTO
       if (aiAdvice.sources && aiAdvice.sources.length > 0) {
         const startY = (doc as any).lastAutoTable.finalY + 20;
         doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0); // NEGRO
+        doc.setTextColor(0, 0, 0);
         doc.text('FUENTES TÉCNICAS Y REFERENCIAS TÉCNICAS:', 14, startY);
         doc.setFontSize(8);
         aiAdvice.sources.forEach((src, idx) => {
-          doc.setTextColor(0, 0, 0); // NEGRO PARA CADA LÍNEA
+          doc.setTextColor(0, 0, 0);
           doc.text(`- ${src.title}: ${src.uri}`, 14, startY + 7 + (idx * 5));
         });
       }
       
-      // Firma
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 150);
       doc.text('________________________________', 140, 280);
       doc.text('Firma Responsable Técnico', 145, 285);
     }
 
-    doc.save(`BioGenesis_Plan_Maestro_${clientData.lastName || 'Cliente'}.pdf`);
+    doc.save(`BioGenesis_Reporte_${clientData.lastName || 'Export'}.pdf`);
   };
 
   return (
@@ -315,11 +313,11 @@ const App: React.FC = () => {
                 <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Datos del Propietario</h3>
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-2">
-                    <input type="text" placeholder="Nombre" value={clientData.firstName} onChange={e => setClientData({...clientData, firstName: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black" />
-                    <input type="text" placeholder="Apellido" value={clientData.lastName} onChange={e => setClientData({...clientData, lastName: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black" />
+                    <input type="text" placeholder="Nombre" value={clientData.firstName} onChange={e => setClientData({...clientData, firstName: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black shadow-none" />
+                    <input type="text" placeholder="Apellido" value={clientData.lastName} onChange={e => setClientData({...clientData, lastName: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black shadow-none" />
                   </div>
-                  <input type="text" placeholder="Ubicación / Finca (Requerido para PDF)" value={clientData.location} onChange={e => setClientData({...clientData, location: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black" />
-                  <input type="text" placeholder="WhatsApp / Teléfono" value={clientData.contact} onChange={e => setClientData({...clientData, contact: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black" />
+                  <input type="text" placeholder="Ubicación / Finca (Digitada)" value={clientData.location} onChange={e => setClientData({...clientData, location: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black shadow-none" />
+                  <input type="text" placeholder="WhatsApp / Teléfono" value={clientData.contact} onChange={e => setClientData({...clientData, contact: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black shadow-none" />
                 </div>
               </div>
 
@@ -327,39 +325,38 @@ const App: React.FC = () => {
                 <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Configuración Técnica</h3>
                 <div className="space-y-4">
                   {activeTab === 'grass' ? (
-                    <select value={input.grassVariety} onChange={e => setInput({...input, grassVariety: e.target.value as GrassVariety})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-black">
+                    <select value={input.grassVariety} onChange={e => setInput({...input, grassVariety: e.target.value as GrassVariety})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-black shadow-none">
                       {Object.values(GrassVariety).map(v => <option key={v} value={v}>{v}</option>)}
                     </select>
                   ) : (
-                    <select value={input.treeType} onChange={e => setInput({...input, treeType: e.target.value as any})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-black">
+                    <select value={input.treeType} onChange={e => setInput({...input, treeType: e.target.value as any})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-black shadow-none">
                       {Object.values(TreeType).filter(t => t !== TreeType.GRASS).map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   )}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Población / Cantidad</label>
-                    <input type="number" value={input.numTrees} onChange={e => setInput({...input, numTrees: parseInt(e.target.value) || 1})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-black" />
+                    <label className="text-[10px] font-black text-slate-500 uppercase">Población Base</label>
+                    <input type="number" value={input.numTrees} onChange={e => setInput({...input, numTrees: parseInt(e.target.value) || 1})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-black shadow-none" />
                   </div>
                 </div>
               </div>
 
               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200">
-                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Granulometría Suelo (%)</h3>
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  <input type="number" placeholder="Arena" value={input.soilPercentages?.sand} onChange={e => handlePercentageChange('sand', parseInt(e.target.value) || 0)} className="p-2 bg-amber-50 text-center rounded-xl text-xs font-bold text-black" />
-                  <input type="number" placeholder="Limo" value={input.soilPercentages?.silt} onChange={e => handlePercentageChange('silt', parseInt(e.target.value) || 0)} className="p-2 bg-slate-50 text-center rounded-xl text-xs font-bold text-black" />
-                  <input type="number" placeholder="Arcilla" value={input.soilPercentages?.clay} onChange={e => handlePercentageChange('clay', parseInt(e.target.value) || 0)} className="p-2 bg-red-50 text-center rounded-xl text-xs font-bold text-black" />
-                </div>
-                <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-black text-emerald-800 text-center uppercase">
-                  {input.soilType}
-                </div>
+                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Porcentaje de Gestión (%)</h3>
+                <input 
+                  type="number" 
+                  value={additionalPercent} 
+                  onChange={(e) => setAdditionalPercent(parseFloat(e.target.value) || 0)} 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-emerald-700 shadow-none"
+                  placeholder="Ej: 10"
+                />
               </div>
 
               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200">
                 <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Insumos Bio-Orgánicos</h3>
                 <div className="max-h-[200px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                   {Object.values(OrganicProduct).map(p => (
-                    <label key={p} className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer ${input.selectedProducts.includes(p) ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50'}`}>
-                      <input type="checkbox" checked={input.selectedProducts.includes(p)} onChange={() => setInput(prev => ({ ...prev, selectedProducts: prev.selectedProducts.includes(p) ? prev.selectedProducts.filter(x => x !== p) : [...prev.selectedProducts, p] }))} className="accent-emerald-600" />
+                    <label key={p} className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer ${input.selectedProducts.includes(p) ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 shadow-none'}`}>
+                      <input type="checkbox" checked={input.selectedProducts.includes(p)} onChange={() => setInput(prev => ({ ...prev, selectedProducts: prev.selectedProducts.includes(p) ? prev.selectedProducts.filter(x => x !== p) : [...prev.selectedProducts, p] }))} className="accent-emerald-600 shadow-none" />
                       <span className="text-[10px] font-black uppercase text-black">{p}</span>
                     </label>
                   ))}
@@ -383,7 +380,7 @@ const App: React.FC = () => {
                 {result && result.products.length > 0 ? (
                   <div className="space-y-8 flex-1">
                     <div className="overflow-hidden rounded-[2rem] border">
-                      <table className="w-full text-left text-[10px] text-black">
+                      <table className="w-full text-left text-[10px] text-black border-collapse">
                         <thead className="bg-slate-100 font-black uppercase text-slate-600">
                           <tr>
                             <th className="p-4">Insumo</th>
@@ -393,20 +390,48 @@ const App: React.FC = () => {
                             <th className="p-4 text-right">Subtotal</th>
                           </tr>
                         </thead>
-                        <tbody className="font-bold text-black bg-white">
+                        <tbody className="bg-white">
                           {result.products.map((p, i) => (
                             <tr key={i} className="border-t hover:bg-slate-50 transition-colors">
-                              <td className="p-4 uppercase font-black text-black">{p.product}</td>
-                              <td className="p-4 text-center uppercase text-black">{p.unit}</td>
-                              <td className="p-4 text-center text-black">{p.amount.toLocaleString()}</td>
-                              <td className="p-4 text-center text-black">${p.costPerUnit.toLocaleString()}</td>
+                              <td className="p-4 uppercase font-bold text-black">{p.product}</td>
+                              <td className="p-4 text-center uppercase text-black font-medium">{p.unit}</td>
+                              <td className="p-4 text-center">
+                                <input 
+                                  type="number" 
+                                  value={input.manualTotalAmounts[p.product] ?? p.amount}
+                                  onChange={(e) => setInput(prev => ({
+                                    ...prev,
+                                    manualTotalAmounts: { ...prev.manualTotalAmounts, [p.product]: parseFloat(e.target.value) || 0 }
+                                  }))}
+                                  className="w-20 p-2 border border-slate-200 rounded-lg text-center text-black font-semibold bg-white outline-none focus:border-emerald-500 shadow-none appearance-none"
+                                />
+                              </td>
+                              <td className="p-4 text-center">
+                                <input 
+                                  type="number" 
+                                  value={input.manualUnitPrices[p.product] ?? p.costPerUnit}
+                                  onChange={(e) => setInput(prev => ({
+                                    ...prev,
+                                    manualUnitPrices: { ...prev.manualUnitPrices, [p.product]: parseFloat(e.target.value) || 0 }
+                                  }))}
+                                  className="w-24 p-2 border border-slate-200 rounded-lg text-center text-black font-semibold bg-white outline-none focus:border-emerald-500 shadow-none appearance-none"
+                                />
+                              </td>
                               <td className="p-4 text-right text-emerald-800 font-black">${p.totalCost.toLocaleString()}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot className="bg-slate-50 border-t-2">
+                          <tr className="bg-slate-100 text-slate-800 font-black">
+                            <td colSpan={4} className="p-4 text-right uppercase tracking-wider text-[9px]">Subtotal Productos</td>
+                            <td className="p-4 text-right text-lg">${result.totalProjectCost.toLocaleString()}</td>
+                          </tr>
+                          <tr className="bg-slate-200 text-emerald-900 font-black">
+                            <td colSpan={4} className="p-4 text-right uppercase tracking-wider text-[9px]">Gestión / Adm. ({additionalPercent}%)</td>
+                            <td className="p-4 text-right text-lg">${Math.round(additionalValue).toLocaleString()}</td>
+                          </tr>
                           <tr className="bg-[#064e3b] text-white font-black">
-                            <td colSpan={4} className="p-6 text-right uppercase tracking-wider">Gran Valor de Inversión</td>
+                            <td colSpan={4} className="p-6 text-right uppercase tracking-wider">Gran Valor de Inversión Final</td>
                             <td className="p-6 text-right text-2xl text-emerald-400 tracking-tighter">${Math.round(grandTotal).toLocaleString()}</td>
                           </tr>
                         </tfoot>
@@ -488,14 +513,14 @@ const App: React.FC = () => {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <p className="text-[10px] font-black text-emerald-600 uppercase">Reporte #{record.consecutive}</p>
-                        <h3 className="font-black text-slate-800 uppercase text-sm truncate">{record.client.firstName} {record.client.lastName}</h3>
+                        <h3 className="font-black text-slate-800 uppercase text-sm truncate text-black">{record.client.firstName} {record.client.lastName}</h3>
                       </div>
                       <span className="text-[9px] font-bold text-slate-400">{record.date.split(',')[0]}</span>
                     </div>
                     <div className="space-y-2 mb-6">
                       <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
                         <span>Proyecto:</span>
-                        <span className="text-slate-800">{record.input.treeType}</span>
+                        <span className="text-slate-800 text-black">{record.input.treeType}</span>
                       </div>
                       <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
                         <span>Inversión:</span>
