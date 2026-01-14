@@ -29,6 +29,14 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     const speciesName = isGrass ? `Grama ${input.grassVariety}` : input.treeType;
     const unitMeasure = isGrass ? input.grassMode : 'plantas';
     const frequencyInfo = `${input.cycleFrequencyValue} ${input.cycleFrequencyUnit}`;
+
+    const soilAnalysisText = input.soilProfile ? `
+    ANÁLISIS DE LABORATORIO (PERFIL):
+    - pH: ${input.soilProfile.ph}
+    - Materia Orgánica: ${input.soilProfile.organicMatter}%
+    - Conductividad Eléctrica: ${input.soilProfile.ec} dS/m
+    - N-P-K (si aplica): N:${input.soilProfile.nitrogen || 'N/A'}, P:${input.soilProfile.phosphorus || 'N/A'}, K:${input.soilProfile.potassium || 'N/A'}
+    ` : 'Análisis químico de laboratorio no disponible.';
     
     const textPrompt = `Actúa como un experto en agronomía orgánica de precisión en Colombia.
     
@@ -39,14 +47,15 @@ export const getAgriculturalAdvice = async (input: CalculationInput): Promise<AI
     - Especie: ${speciesName}
     - Objetivo: ${input.applicationMode}
     - Cantidad: ${input.numTrees} ${unitMeasure}
-    - Suelo: ${input.soilType}
+    - Suelo (Textura): ${input.soilType}
+    ${soilAnalysisText}
     - Clima reportado: ${input.climate}
     - Estado de salud: ${input.healthStatus}
     - Insumos disponibles: ${productList}
     - FRECUENCIA DE APLICACIÓN PLANIFICADA: Cada ${frequencyInfo}
     
     TAREA:
-    Consulta fuentes técnicas colombianas recientes (ICA, AGROSAVIA) y genera un protocolo de dosificación EXACTO.
+    Consulta fuentes técnicas colombianas recientes (ICA, AGROSAVIA) y genera un protocolo de dosificación EXACTO basado en el PERFIL QUÍMICO reportado (pH, Materia Orgánica, etc).
     
     REGLA CRÍTICA DE DOSIFICACIÓN Y FRECUENCIA:
     Para cada producto en 'radicularPlan' y 'foliarPlan', el campo 'dosage' DEBE indicar la cantidad para UNA SOLA PLANTA (o m2 si es césped) POR APLICACIÓN.

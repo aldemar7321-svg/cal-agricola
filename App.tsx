@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { TreeType, SoilType, OrganicProduct, CalculationInput, CalculationResult, AIAdvice, ProductResult, UnitType, GrassMeasureMode, GrassVariety, ClimateType, VisionReport, ApplicationMode, Department, ClientData, HistoryRecord } from './types.ts';
+import { TreeType, SoilType, OrganicProduct, CalculationInput, CalculationResult, AIAdvice, ProductResult, UnitType, GrassMeasureMode, GrassVariety, ClimateType, VisionReport, ApplicationMode, Department, ClientData, HistoryRecord, SoilAnalysisProfile } from './types.ts';
 import { BASE_RATES, PRODUCT_UNITS, COLOMBIAN_MARKET_PRICES, TREE_TYPE_ICONS, PRODUCT_DETAILS } from './constants.tsx';
 import { getAgriculturalAdvice, getIndependentVisionDiagnosis } from './services/geminiService.ts';
 import { jsPDF } from 'jspdf';
@@ -28,6 +28,7 @@ const App: React.FC = () => {
   
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<OrganicProduct | null>(null);
   const [additionalPercent, setAdditionalPercent] = useState<number>(0);
+  const [showSoilProfile, setShowSoilProfile] = useState(false);
 
   const [clientData, setClientData] = useState<ClientData>({
     firstName: '', lastName: '', location: '', contact: '', email: ''
@@ -35,11 +36,13 @@ const App: React.FC = () => {
 
   const [input, setInput] = useState<CalculationInput & { 
     manualTotalAmounts: Record<string, number | undefined>,
-    manualUnitPrices: Record<string, number | undefined>
+    manualUnitPrices: Record<string, number | undefined>,
+    manualUnits: Record<string, UnitType | undefined>
   }>({
     treeType: TreeType.CITRUS, department: Department.ANTIOQUIA, applicationMode: ApplicationMode.MAINTENANCE,
     soilType: SoilType.FRANCO, 
     soilPercentages: { sand: 40, silt: 40, clay: 20 },
+    soilProfile: { ph: 6.5, organicMatter: 3, ec: 1.2 },
     climate: ClimateType.MODERATE, treeAge: 1, numTrees: 1, 
     grassVariety: GrassVariety.KIKUYO, grassMode: GrassMeasureMode.AREA,
     selectedProducts: [OrganicProduct.COMPOST_TERRABONO, OrganicProduct.LIQUID_HUMUS],
@@ -47,7 +50,8 @@ const App: React.FC = () => {
     cycleFrequencyValue: 3, cycleFrequencyUnit: 'meses', healthStatus: 'bueno',
     manualAmounts: {},
     manualTotalAmounts: {},
-    manualUnitPrices: {}
+    manualUnitPrices: {},
+    manualUnits: {}
   });
 
   const [result, setResult] = useState<CalculationResult | null>(null);
@@ -85,6 +89,13 @@ const App: React.FC = () => {
     setInput({ ...input, soilPercentages: newPercentages, soilType: newSoilType });
   };
 
+  const handleSoilProfileChange = (field: keyof SoilAnalysisProfile, value: number) => {
+    setInput(prev => ({
+      ...prev,
+      soilProfile: { ...prev.soilProfile!, [field]: value }
+    }));
+  };
+
   const calculateProductRow = useCallback((p: OrganicProduct) => {
     const quantityBase = input.numTrees || 1;
     let totalAmount: number;
@@ -106,11 +117,12 @@ const App: React.FC = () => {
 
     const price = input.manualUnitPrices[p] !== undefined ? (input.manualUnitPrices[p] as number) : (input.productPrices[p] || 0);
     const subtotal = totalAmount * price;
+    const unit = input.manualUnits[p] || PRODUCT_UNITS[p] || 'u';
 
     return {
       product: p,
       amount: parseFloat(totalAmount.toFixed(2)),
-      unit: input.selectedUnits[p] || PRODUCT_UNITS[p] || 'u',
+      unit: unit as UnitType,
       costPerUnit: price,
       totalCost: Math.round(subtotal)
     };
@@ -161,92 +173,99 @@ const App: React.FC = () => {
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = (onlyAI: boolean = false) => {
     if (!result) return;
     const doc = new jsPDF();
     const primaryColor = [6, 78, 59];
     const secondaryColor = [16, 185, 129];
 
-    // HEADER
-    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.rect(0, 0, 210, 50, 'F');
-    doc.setFontSize(22);
-    doc.setTextColor(255, 255, 255);
-    doc.text('BIOGENESIS PRO - INFORME MAESTRO', 14, 25);
-    doc.setFontSize(9);
-    doc.text('Ingeniería de Precisión y Plan de Manejo Bio-Orgánico', 14, 33);
-    doc.text(`Fecha: ${new Date().toLocaleDateString('es-CO')}`, 14, 38);
-    doc.text(`UBICACIÓN REGISTRADA: ${clientData.location.toUpperCase() || 'NO ESPECIFICADA'}`, 14, 43);
+    const drawHeader = (title: string) => {
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.rect(0, 0, 210, 50, 'F');
+      doc.setFontSize(22);
+      doc.setTextColor(255, 255, 255);
+      doc.text(title, 14, 25);
+      doc.setFontSize(9);
+      doc.text('Ingeniería de Precisión y Plan de Manejo Bio-Orgánico', 14, 33);
+      doc.text(`Fecha: ${new Date().toLocaleDateString('es-CO')}`, 14, 38);
+      doc.text(`UBICACIÓN: ${clientData.location.toUpperCase() || 'NO REGISTRADA'}`, 14, 43);
+    };
 
-    // DATOS DEL CLIENTE
-    doc.setFontSize(14);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('1. INFORMACIÓN DEL PROPIETARIO', 14, 65);
-    
-    autoTable(doc, {
-      startY: 70,
-      head: [['Campo', 'Detalle']],
-      body: [
-        ['Nombre Propietario', `${clientData.firstName} ${clientData.lastName}`],
-        ['Ubicación Finca / Vereda', clientData.location],
-        ['Contacto WhatsApp', clientData.contact],
-        ['Correo Electrónico', clientData.email],
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: primaryColor }
-    });
+    if (!onlyAI) {
+      drawHeader('BIOGENESIS PRO - INFORME MAESTRO');
+      doc.setFontSize(14);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text('1. INFORMACIÓN DEL PROPIETARIO', 14, 65);
+      
+      autoTable(doc, {
+        startY: 70,
+        head: [['Campo', 'Detalle']],
+        body: [
+          ['Nombre Propietario', `${clientData.firstName} ${clientData.lastName}`],
+          ['Ubicación Finca / Vereda', clientData.location],
+          ['Contacto WhatsApp', clientData.contact],
+          ['Correo Electrónico', clientData.email],
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: primaryColor }
+      });
 
-    // INFORMACIÓN TÉCNICA
-    doc.text('2. ESPECIFICACIONES TÉCNICAS', 14, (doc as any).lastAutoTable.finalY + 15);
-    autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 20,
-      head: [['Parámetro', 'Valor']],
-      body: [
-        ['Variedad/Especie', activeTab === 'grass' ? `Césped - ${input.grassVariety}` : input.treeType],
-        ['Cant. Unidades', input.numTrees.toString()],
-        ['Textura Suelo', `${input.soilType} (Arena:${input.soilPercentages?.sand}% Limo:${input.soilPercentages?.silt}% Arcilla:${input.soilPercentages?.clay}%)`],
-        ['Estado Sanitario Inicial', input.healthStatus.toUpperCase()],
-      ],
-      theme: 'striped',
-      headStyles: { fillColor: primaryColor }
-    });
+      doc.text('2. ESPECIFICACIONES TÉCNICAS', 14, (doc as any).lastAutoTable.finalY + 15);
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 20,
+        head: [['Parámetro', 'Valor']],
+        body: [
+          ['Variedad/Especie', activeTab === 'grass' ? `Césped - ${input.grassVariety}` : input.treeType],
+          ['Cant. Unidades', input.numTrees.toString()],
+          ['Textura Suelo', `${input.soilType} (A:${input.soilPercentages?.sand}% L:${input.soilPercentages?.silt}% Ar:${input.soilPercentages?.clay}%)`],
+          ['Perfil Químico', input.soilProfile ? `pH: ${input.soilProfile.ph} | MO: ${input.soilProfile.organicMatter}% | EC: ${input.soilProfile.ec} dS/m` : 'No reportado'],
+          ['Estado Sanitario Inicial', input.healthStatus.toUpperCase()],
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: primaryColor }
+      });
 
-    // PRESUPUESTO COMPLETO
-    doc.text('3. DETALLE DE INSUMOS Y COSTOS', 14, (doc as any).lastAutoTable.finalY + 15);
-    autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 20,
-      head: [['Insumo', 'Unidad', 'Cant.', 'V. Unitario', 'Subtotal (COP)']],
-      body: result.products.map(p => [
-        p.product, 
-        p.unit, 
-        p.amount.toLocaleString(),
-        `$${p.costPerUnit.toLocaleString()}`,
-        `$${p.totalCost.toLocaleString()}`
-      ]),
-      foot: [
-        ['', '', '', 'SUBTOTAL PRODUCTOS', `$${result.totalProjectCost.toLocaleString()}`],
-        ['', '', '', `GESTIÓN / ADM. (${additionalPercent}%)`, `$${additionalValue.toLocaleString()}`],
-        ['', '', '', 'TOTAL INVERSIÓN FINAL', `$${grandTotal.toLocaleString()}`]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: primaryColor },
-      footStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold' },
-      bodyStyles: { textColor: [0, 0, 0] }
-    });
+      doc.text('3. DETALLE DE INSUMOS Y COSTOS', 14, (doc as any).lastAutoTable.finalY + 15);
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 20,
+        head: [['Insumo', 'Unidad', 'Cant.', 'V. Unitario', 'Subtotal (COP)']],
+        body: result.products.map(p => [
+          p.product, 
+          p.unit, 
+          p.amount.toLocaleString(),
+          `$${p.costPerUnit.toLocaleString()}`,
+          `$${p.totalCost.toLocaleString()}`
+        ]),
+        foot: [
+          ['', '', '', 'SUBTOTAL PRODUCTOS', `$${result.totalProjectCost.toLocaleString()}`],
+          ['', '', '', `GESTIÓN / ADM. (${additionalPercent}%)`, `$${additionalValue.toLocaleString()}`],
+          ['', '', '', 'TOTAL INVERSIÓN FINAL', `$${grandTotal.toLocaleString()}`]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: primaryColor },
+        footStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold' },
+        bodyStyles: { textColor: [0, 0, 0] }
+      });
+    }
 
     if (aiAdvice) {
-      doc.addPage();
-      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.rect(0, 0, 210, 20, 'F');
-      doc.setFontSize(12);
-      doc.setTextColor(255, 255, 255);
-      doc.text('4. PLAN MAESTRO DE NUTRICIÓN (BIO-VISION IA)', 14, 13);
+      if (!onlyAI) doc.addPage();
+      else drawHeader('BIOGENESIS PRO - PLAN NUTRICIONAL IA');
+      
+      const startContentY = onlyAI ? 65 : 13;
+      if (!onlyAI) {
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.rect(0, 0, 210, 20, 'F');
+        doc.setFontSize(12);
+        doc.setTextColor(255, 255, 255);
+        doc.text('4. PLAN MAESTRO DE NUTRICIÓN (BIO-VISION IA)', 14, startContentY);
+      }
       
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(11);
-      doc.text('ESTRATEGIA RADICULAR:', 14, 30);
+      doc.text('ESTRATEGIA RADICULAR:', 14, onlyAI ? 75 : 30);
       autoTable(doc, {
-        startY: 35,
+        startY: onlyAI ? 80 : 35,
         head: [['Ítem Sugerido', 'Dosificación por Aplicación', 'Objetivo']],
         body: aiAdvice.radicularPlan.map(p => [p.item, p.dosage, p.purpose]),
         theme: 'striped',
@@ -282,7 +301,8 @@ const App: React.FC = () => {
       doc.text('Firma Responsable Técnico', 145, 285);
     }
 
-    doc.save(`BioGenesis_Reporte_${clientData.lastName || 'Export'}.pdf`);
+    const fileName = onlyAI ? `Plan_Maestro_IA_${clientData.lastName}.pdf` : `Reporte_BioGenesis_${clientData.lastName}.pdf`;
+    doc.save(fileName);
   };
 
   return (
@@ -313,11 +333,11 @@ const App: React.FC = () => {
                 <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Datos del Propietario</h3>
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-2">
-                    <input type="text" placeholder="Nombre" value={clientData.firstName} onChange={e => setClientData({...clientData, firstName: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black shadow-none" />
-                    <input type="text" placeholder="Apellido" value={clientData.lastName} onChange={e => setClientData({...clientData, lastName: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black shadow-none" />
+                    <input type="text" placeholder="Nombre" value={clientData.firstName} onChange={e => setClientData({...clientData, firstName: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-black shadow-none outline-none" />
+                    <input type="text" placeholder="Apellido" value={clientData.lastName} onChange={e => setClientData({...clientData, lastName: e.target.value})} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-black shadow-none outline-none" />
                   </div>
-                  <input type="text" placeholder="Ubicación / Finca (Digitada)" value={clientData.location} onChange={e => setClientData({...clientData, location: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black shadow-none" />
-                  <input type="text" placeholder="WhatsApp / Teléfono" value={clientData.contact} onChange={e => setClientData({...clientData, contact: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 text-black shadow-none" />
+                  <input type="text" placeholder="Ubicación / Finca" value={clientData.location} onChange={e => setClientData({...clientData, location: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-black shadow-none outline-none" />
+                  <input type="text" placeholder="WhatsApp / Teléfono" value={clientData.contact} onChange={e => setClientData({...clientData, contact: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-black shadow-none outline-none" />
                 </div>
               </div>
 
@@ -335,9 +355,46 @@ const App: React.FC = () => {
                   )}
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-500 uppercase">Población Base</label>
-                    <input type="number" value={input.numTrees} onChange={e => setInput({...input, numTrees: parseInt(e.target.value) || 1})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-black shadow-none" />
+                    <input type="number" value={input.numTrees} onChange={e => setInput({...input, numTrees: parseInt(e.target.value) || 1})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-black shadow-none outline-none" />
                   </div>
                 </div>
+              </div>
+
+              {/* PERFIL ANALÍTICO DEL SUELO */}
+              <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200">
+                <button 
+                  onClick={() => setShowSoilProfile(!showSoilProfile)} 
+                  className="w-full flex justify-between items-center text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2"
+                >
+                  Perfil Analítico Suelo
+                  <i className={`fas fa-chevron-${showSoilProfile ? 'up' : 'down'}`}></i>
+                </button>
+                {showSoilProfile && (
+                  <div className="space-y-4 mt-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-500 uppercase">pH Suelo (0-14)</label>
+                        <input type="number" step="0.1" value={input.soilProfile?.ph} onChange={e => handleSoilProfileChange('ph', parseFloat(e.target.value))} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-black outline-none" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-500 uppercase">MO (%)</label>
+                        <input type="number" step="0.1" value={input.soilProfile?.organicMatter} onChange={e => handleSoilProfileChange('organicMatter', parseFloat(e.target.value))} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-black outline-none" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase">Conductividad (dS/m)</label>
+                      <input type="number" step="0.1" value={input.soilProfile?.ec} onChange={e => handleSoilProfileChange('ec', parseFloat(e.target.value))} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-black outline-none" />
+                    </div>
+                    <div className="p-3 bg-slate-100 rounded-xl border border-slate-200">
+                      <h4 className="text-[9px] font-black text-slate-400 uppercase mb-2">Macro-elementos (ppm)</h4>
+                      <div className="grid grid-cols-3 gap-2">
+                        <input type="number" placeholder="N" value={input.soilProfile?.nitrogen} onChange={e => handleSoilProfileChange('nitrogen', parseFloat(e.target.value))} className="p-2 bg-white border border-slate-200 rounded-lg text-center text-[10px] font-bold text-black" />
+                        <input type="number" placeholder="P" value={input.soilProfile?.phosphorus} onChange={e => handleSoilProfileChange('phosphorus', parseFloat(e.target.value))} className="p-2 bg-white border border-slate-200 rounded-lg text-center text-[10px] font-bold text-black" />
+                        <input type="number" placeholder="K" value={input.soilProfile?.potassium} onChange={e => handleSoilProfileChange('potassium', parseFloat(e.target.value))} className="p-2 bg-white border border-slate-200 rounded-lg text-center text-[10px] font-bold text-black" />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200">
@@ -346,7 +403,7 @@ const App: React.FC = () => {
                   type="number" 
                   value={additionalPercent} 
                   onChange={(e) => setAdditionalPercent(parseFloat(e.target.value) || 0)} 
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-emerald-700 shadow-none"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-emerald-700 shadow-none outline-none"
                   placeholder="Ej: 10"
                 />
               </div>
@@ -356,7 +413,7 @@ const App: React.FC = () => {
                 <div className="max-h-[200px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                   {Object.values(OrganicProduct).map(p => (
                     <label key={p} className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer ${input.selectedProducts.includes(p) ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 shadow-none'}`}>
-                      <input type="checkbox" checked={input.selectedProducts.includes(p)} onChange={() => setInput(prev => ({ ...prev, selectedProducts: prev.selectedProducts.includes(p) ? prev.selectedProducts.filter(x => x !== p) : [...prev.selectedProducts, p] }))} className="accent-emerald-600 shadow-none" />
+                      <input type="checkbox" checked={input.selectedProducts.includes(p)} onChange={() => setInput(prev => ({ ...prev, selectedProducts: prev.selectedProducts.includes(p) ? prev.selectedProducts.filter(x => x !== p) : [...prev.selectedProducts, p] }))} className="accent-emerald-600 shadow-none outline-none" />
                       <span className="text-[10px] font-black uppercase text-black">{p}</span>
                     </label>
                   ))}
@@ -371,7 +428,7 @@ const App: React.FC = () => {
                   <div className="flex gap-2">
                     <button title="Guardar Historial" onClick={saveReportToHistory} className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition-all shadow-md"><i className="fas fa-save"></i></button>
                     <button title="Compartir WhatsApp" onClick={shareViaWhatsApp} className="bg-green-600 text-white p-3 rounded-xl hover:bg-green-700 transition-all shadow-md"><i className="fab fa-whatsapp"></i></button>
-                    <button onClick={handleExportPDF} className="bg-[#064e3b] text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase shadow-lg flex items-center gap-2">
+                    <button onClick={() => handleExportPDF(false)} className="bg-[#064e3b] text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase shadow-lg flex items-center gap-2">
                       <i className="fas fa-file-pdf"></i> Informe PDF
                     </button>
                   </div>
@@ -384,9 +441,9 @@ const App: React.FC = () => {
                         <thead className="bg-slate-100 font-black uppercase text-slate-600">
                           <tr>
                             <th className="p-4">Insumo</th>
-                            <th className="p-4 text-center">Unidad</th>
-                            <th className="p-4 text-center">Cant.</th>
-                            <th className="p-4 text-center">V. Unitario</th>
+                            <th className="p-4 text-center">Unidad <i className="fas fa-edit text-[8px] opacity-30"></i></th>
+                            <th className="p-4 text-center">Cant. <i className="fas fa-edit text-[8px] opacity-30"></i></th>
+                            <th className="p-4 text-center">V. Unitario <i className="fas fa-edit text-[8px] opacity-30"></i></th>
                             <th className="p-4 text-right">Subtotal</th>
                           </tr>
                         </thead>
@@ -394,7 +451,18 @@ const App: React.FC = () => {
                           {result.products.map((p, i) => (
                             <tr key={i} className="border-t hover:bg-slate-50 transition-colors">
                               <td className="p-4 uppercase font-bold text-black">{p.product}</td>
-                              <td className="p-4 text-center uppercase text-black font-medium">{p.unit}</td>
+                              <td className="p-4 text-center">
+                                <select 
+                                  value={input.manualUnits[p.product] ?? p.unit}
+                                  onChange={(e) => setInput(prev => ({
+                                    ...prev,
+                                    manualUnits: { ...prev.manualUnits, [p.product]: e.target.value as UnitType }
+                                  }))}
+                                  className="w-16 p-2 border border-slate-100 rounded-lg text-center text-black font-semibold bg-white outline-none shadow-none appearance-none"
+                                >
+                                  {['gr', 'kg', 'ml', 'cc', 'lt', 'gl'].map(u => <option key={u} value={u}>{u}</option>)}
+                                </select>
+                              </td>
                               <td className="p-4 text-center">
                                 <input 
                                   type="number" 
@@ -403,7 +471,7 @@ const App: React.FC = () => {
                                     ...prev,
                                     manualTotalAmounts: { ...prev.manualTotalAmounts, [p.product]: parseFloat(e.target.value) || 0 }
                                   }))}
-                                  className="w-20 p-2 border border-slate-200 rounded-lg text-center text-black font-semibold bg-white outline-none focus:border-emerald-500 shadow-none appearance-none"
+                                  className="w-20 p-2 border border-slate-100 rounded-lg text-center text-black font-semibold bg-white outline-none shadow-none appearance-none"
                                 />
                               </td>
                               <td className="p-4 text-center">
@@ -414,7 +482,7 @@ const App: React.FC = () => {
                                     ...prev,
                                     manualUnitPrices: { ...prev.manualUnitPrices, [p.product]: parseFloat(e.target.value) || 0 }
                                   }))}
-                                  className="w-24 p-2 border border-slate-200 rounded-lg text-center text-black font-semibold bg-white outline-none focus:border-emerald-500 shadow-none appearance-none"
+                                  className="w-24 p-2 border border-slate-100 rounded-lg text-center text-black font-semibold bg-white outline-none shadow-none appearance-none"
                                 />
                               </td>
                               <td className="p-4 text-right text-emerald-800 font-black">${p.totalCost.toLocaleString()}</td>
@@ -438,8 +506,16 @@ const App: React.FC = () => {
                       </table>
                     </div>
 
-                    <div className="bg-emerald-50 p-8 rounded-[2rem] border-2 border-dashed border-emerald-200">
-                       <h4 className="font-black text-[#064e3b] uppercase mb-6 flex items-center gap-3"><i className="fas fa-wand-magic-sparkles"></i> Plan Maestro IA</h4>
+                    <div className="bg-emerald-50 p-8 rounded-[2rem] border-2 border-dashed border-emerald-200 relative">
+                       <div className="flex justify-between items-start mb-6">
+                         <h4 className="font-black text-[#064e3b] uppercase flex items-center gap-3"><i className="fas fa-wand-magic-sparkles"></i> Plan Maestro IA</h4>
+                         {aiAdvice && (
+                           <button onClick={() => handleExportPDF(true)} className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-[8px] font-black uppercase shadow hover:bg-emerald-700 transition-all flex items-center gap-1.5">
+                             <i className="fas fa-file-export"></i> PDF Plan IA
+                           </button>
+                         )}
+                       </div>
+                       
                        {!aiAdvice ? (
                          <button onClick={async () => { setLoading(true); const advice = await getAgriculturalAdvice(input); setAiAdvice(advice); setLoading(false); }} disabled={loading} className="w-full bg-white text-emerald-900 p-8 rounded-2xl border font-black uppercase hover:bg-emerald-100 transition-all shadow-sm">
                            {loading ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}

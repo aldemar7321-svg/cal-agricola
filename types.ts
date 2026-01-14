@@ -116,7 +116,7 @@ export enum OrganicProduct {
   BIO_FLOS = 'Bio Flos - EcoGenesis'
 }
 
-export type UnitType = 'g' | 'kg' | 'cc' | 'ml' | 'L' | 'galon';
+export type UnitType = 'gr' | 'kg' | 'ml' | 'cc' | 'lt' | 'gl';
 export type FrequencyUnit = 'días' | 'meses';
 
 export interface GroundingSource {
@@ -132,6 +132,15 @@ export interface ClientData {
   email: string;
 }
 
+export interface SoilAnalysisProfile {
+  ph: number;
+  organicMatter: number;
+  ec: number; // Conductividad Eléctrica
+  nitrogen?: number;
+  phosphorus?: number;
+  potassium?: number;
+}
+
 export interface CalculationInput {
   treeType: TreeType;
   department: Department;
@@ -143,6 +152,7 @@ export interface CalculationInput {
     silt: number;
     clay: number;
   };
+  soilProfile?: SoilAnalysisProfile;
   climate: ClimateType;
   treeAge: number;
   numTrees: number;
