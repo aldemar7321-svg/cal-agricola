@@ -66,11 +66,13 @@ export enum GrassVariety {
   BERMUDA = 'Bermuda',
   BERMUDA_419 = 'Bermuda 419',
   TRENZA = 'Trenza',
+  ALFOMBRA = 'Alfombra (Axonopus)',
   MACANA = 'Macana / Dulce',
   MANI_FORRAJERO = 'Maní Forrajero',
   JAPONESA = 'Japonesa',
   GATEADORA = 'Gateadora',
-  ESMERALDA = 'Esmeralda'
+  ESMERALDA = 'Esmeralda',
+  PASTO_AZUL = 'Pasto Azul / Orchard (Frío)'
 }
 
 export enum SoilType {
@@ -113,7 +115,8 @@ export enum OrganicProduct {
   DIATOMACEOUS_EARTH = 'Tierra de Diatomeas',
   MAGNESITE = 'Magnesita',
   MYCORRHIZA = 'Micorrizas',
-  BIO_FLOS = 'Bio Flos - EcoGenesis'
+  BIO_FLOS = 'Bio Flos - EcoGenesis',
+  SAND = 'Arena'
 }
 
 export type UnitType = 'gr' | 'kg' | 'ml' | 'cc' | 'lt' | 'gl';
@@ -130,6 +133,7 @@ export interface ClientData {
   location: string;
   contact: string;
   email: string;
+  projectName?: string;
 }
 
 export interface SoilAnalysisProfile {
@@ -139,6 +143,15 @@ export interface SoilAnalysisProfile {
   nitrogen?: number;
   phosphorus?: number;
   potassium?: number;
+}
+
+export interface CustomProduct {
+  id: string;
+  name: string;
+  url?: string;
+  technicalData?: string;
+  defaultUnit: UnitType;
+  defaultPrice: number;
 }
 
 export interface CalculationInput {
@@ -158,9 +171,14 @@ export interface CalculationInput {
   numTrees: number;
   grassMode?: GrassMeasureMode;
   selectedProducts: OrganicProduct[];
+  customProducts: CustomProduct[];
+  selectedCustomProductIds: string[];
   productPrices: Record<string, number>;
   manualAmounts: Record<string, number | undefined>;
   manualPlantAmounts: Record<string, number | undefined>;
+  manualTotalAmounts: Record<string, number | undefined>;
+  manualUnitPrices: Record<string, number | undefined>;
+  manualUnits: Record<string, UnitType | undefined>;
   selectedUnits: Record<string, UnitType>;
   cycleFrequencyValue: number;
   cycleFrequencyUnit: FrequencyUnit;
@@ -168,7 +186,7 @@ export interface CalculationInput {
 }
 
 export interface ProductResult {
-  product: OrganicProduct;
+  product: string;
   amount: number;
   unit: UnitType;
   costPerUnit: number;
@@ -232,15 +250,64 @@ export interface AIAdvice {
     technique: string;
   };
   sources?: GroundingSource[];
+  mixCompatibility?: string;
+  technicalObservations?: string;
+  longTermImpact?: string;
 }
 
 export interface VisionReport {
   plantReading: string;
-  pestAnalysis: PestAnalysis;
+  metabolicState: string;
+  laboratoryCorrelation: string;
+  pathologyAnalysis?: PestAnalysis; // Opcional para diagnóstico vegetal
   biologicalRemedy: {
     ingredients: string[];
     preparation: string;
     application: string;
   };
   recommendations: string[];
+}
+
+export interface EntomologyReport {
+  insectDescription: string;
+  taxonomy: {
+    commonName: string;
+    scientificName: string;
+    family?: string;
+    order?: string;
+  };
+  threatLevel: 'Leve' | 'Moderado' | 'Crítico';
+  lifeCycle: string;
+  damageMechanism: string;
+  hostCompatibility: string;
+  biologicalControl: {
+    agent: string;
+    ingredients: string[];
+    preparation: string;
+    application: string;
+  };
+  integratedManagement: string[];
+}
+
+export enum ActivityType {
+  FERTILIZATION = 'Fertilización',
+  FOLIAR_APPLICATION = 'Aplicación Foliar',
+  IRRIGATION = 'Riego',
+  PRUNING = 'Poda',
+  HARVEST = 'Cosecha',
+  DISEASE_CONTROL = 'Control de Plagas',
+  WEEDING = 'Deshierbe',
+  SOIL_PREP = 'Preparación de Suelo',
+  OTHER = 'Otro'
+}
+
+export interface ActivityRecord {
+  id: string;
+  date: string;
+  projectName: string;
+  type: ActivityType;
+  description: string;
+  responsible: string;
+  status: 'Completado' | 'Pendiente' | 'En Progreso';
+  priority: 'Alta' | 'Media' | 'Baja';
 }

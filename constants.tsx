@@ -60,13 +60,19 @@ export const COMPATIBILITY_RULES: Record<string, Record<string, CompatibilityRul
     [OrganicProduct.NEEM_EXTRACT]: { status: 'caution', reason: 'Mezcla aceitosa + azufre bajo sol puede causar quemaduras foliares.' },
     [OrganicProduct.POTASSIUM_SOAP]: { status: 'incompatible', reason: 'Reacción alcalina extrema que anula el efecto del azufre.' }
   },
-  [OrganicProduct.EM]: {
-    [OrganicProduct.MOLASSES]: { status: 'compatible', reason: 'SINERGIA: La melaza alimenta y activa los microorganismos.', maxMixRatio: '1:2 (Melaza:EM)' },
-    [OrganicProduct.LIQUID_HUMUS]: { status: 'compatible', reason: 'Mejora la colonización de bacterias en el suelo.' }
-  },
   [OrganicProduct.POTASSIUM_SOAP]: {
     [OrganicProduct.NEEM_EXTRACT]: { status: 'compatible', reason: 'SINERGIA: El jabón actúa como surfactante potenciando el Neem.', maxMixRatio: '5ml Jabón + 3ml Neem por Litro' }
-  }
+  },
+  [OrganicProduct.CALCIUM_CARBONATE]: {
+    [OrganicProduct.PHOSPHATE_ROCK]: { status: 'incompatible', reason: 'El exceso de calcio bloquea la asimilación del fósforo (insolubilización).' },
+    [OrganicProduct.COMPOST_TERRABONO]: { status: 'caution', reason: 'La cal puede liberar amoníaco si el compost no está 100% maduro.' }
+  },
+  [OrganicProduct.EM]: {
+    [OrganicProduct.MOLASSES]: { status: 'compatible', reason: 'SINERGIA: La melaza alimenta y activa los microorganismos.', maxMixRatio: '1:2 (Melaza:EM)' },
+    [OrganicProduct.LIQUID_HUMUS]: { status: 'compatible', reason: 'Mejora la colonización de bacterias en el suelo.' },
+    [OrganicProduct.BORON]: { status: 'caution', reason: 'Dosis altas de boro pueden ser tóxicas para los microorganismos benéficos.' },
+    [OrganicProduct.ZINC]: { status: 'caution', reason: 'Sulfatos concentrados pueden inhibir la actividad biológica del EM.' }
+  },
 };
 
 export const DEPARTMENT_CLIMATE_MAP: Record<Department, ClimateType> = {
@@ -129,6 +135,7 @@ export const PRODUCT_CATEGORIES = {
     OrganicProduct.DIATOMACEOUS_EARTH,
     OrganicProduct.MAGNESITE,
     OrganicProduct.MYCORRHIZA,
+    OrganicProduct.SAND,
   ]
 };
 
@@ -156,7 +163,7 @@ export const PRODUCT_DETAILS: Record<OrganicProduct, { properties: string, benef
   [OrganicProduct.MOLASSES]: {
     properties: "Subproducto denso de la caña de azúcar, alto contenido de sacarosa y minerales.",
     benefits: "Fuente energética inmediata para la microbiota del suelo. Ayuda a la adherencia de caldos.",
-    precautions: "Diluir totalmente para evitar atracción excesiva de hormigas si se aplica foliarmente."
+    precautions: "Diluir totalmente para evitar attraction excesiva de hormigas si se aplica foliarmente."
   },
   [OrganicProduct.SULFUR_FUNGICIDE]: {
     properties: "Azufre elemental en suspensión líquida o flujo molido.",
@@ -199,7 +206,7 @@ export const PRODUCT_DETAILS: Record<OrganicProduct, { properties: string, benef
     precautions: "Efecto de liberación lenta. Aplicar preferiblemente en la base del hueco de siembra."
   },
   [OrganicProduct.PHOSPHATE_ROCK]: {
-    properties: "Mineral de fósforo de origen sedimentario (Apatita).",
+    properties: "Mineral de fósorus de origen sedimentario (Apatita).",
     benefits: "Fuente de fósforo de liberación lenta. Ideal para corregir acidez y deficiencias crónicas.",
     precautions: "Funciona mejor en suelos ácidos (pH < 5.5). Aplicar junto a materia orgánica para activar."
   },
@@ -232,6 +239,11 @@ export const PRODUCT_DETAILS: Record<OrganicProduct, { properties: string, benef
     properties: "Complejo orgánico-mineral diseñado para la etapa reproductiva.",
     benefits: "Estimula la inducción floral, mejora el tamaño y peso del fruto. Reduce caída de flores.",
     precautions: "Seguir el calendario de aplicación según el estado fenológico del cultivo."
+  },
+  [OrganicProduct.SAND]: {
+    properties: "Arena de río lavada o arena silícea de granulometría media.",
+    benefits: "Mejora drásticamente el drenaje y la aireación en suelos pesados (arcillosos). Evita compactación.",
+    precautions: "Asegurar que sea arena lavada libre de sales (no usar arena de mar sin proceso de desalinización)."
   }
 };
 
@@ -256,6 +268,7 @@ export const PRODUCT_NUTRIENTS: Record<OrganicProduct, { N: number, P: number, K
   [OrganicProduct.MAGNESITE]: { N: 0, P: 0, K: 0, OM: 0 },
   [OrganicProduct.MYCORRHIZA]: { N: 0, P: 20, K: 0, OM: 30 },
   [OrganicProduct.BIO_FLOS]: { N: 8, P: 4, K: 6, OM: 15 },
+  [OrganicProduct.SAND]: { N: 0, P: 0, K: 0, OM: 0 },
 };
 
 export const BASE_RATES: Record<OrganicProduct, number> = {
@@ -279,6 +292,7 @@ export const BASE_RATES: Record<OrganicProduct, number> = {
   [OrganicProduct.MAGNESITE]: 15,
   [OrganicProduct.MYCORRHIZA]: 0.05,
   [OrganicProduct.BIO_FLOS]: 5,
+  [OrganicProduct.SAND]: 2.0,
 };
 
 export const PRODUCT_UNITS: Record<OrganicProduct, UnitType> = {
@@ -302,6 +316,7 @@ export const PRODUCT_UNITS: Record<OrganicProduct, UnitType> = {
   [OrganicProduct.MAGNESITE]: 'gr',
   [OrganicProduct.MYCORRHIZA]: 'kg',
   [OrganicProduct.BIO_FLOS]: 'ml',
+  [OrganicProduct.SAND]: 'kg',
 };
 
 export const COLOMBIAN_MARKET_PRICES: Record<OrganicProduct, number> = {
@@ -325,4 +340,5 @@ export const COLOMBIAN_MARKET_PRICES: Record<OrganicProduct, number> = {
   [OrganicProduct.MAGNESITE]: 18,
   [OrganicProduct.MYCORRHIZA]: 8500,
   [OrganicProduct.BIO_FLOS]: 45,
+  [OrganicProduct.SAND]: 450,
 };
